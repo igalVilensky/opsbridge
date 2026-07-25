@@ -1,0 +1,45 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Case {
+  id                  String   @id @default(cuid())
+  subject             String
+  originalMessage     String
+  customerEmail       String?
+  orderId             String?
+  phoneNumber         String?
+  department          String
+  priority            String   @default("MEDIUM")
+  status              String   @default("NEW")
+  externalRequestId   String?  @unique
+  aiSummary           String?
+  suggestedAction     String?
+  draftResponse       String?
+  approvedResponse    String?
+  rejectionReason     String?
+  lastError           String?
+  urgentWebhookSentAt DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  events CaseEvent[]
+}
+
+model CaseEvent {
+  id        String   @id @default(cuid())
+  caseId    String
+  eventType String
+  message   String
+  metadata  String?
+  createdAt DateTime @default(now())
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId])
+}
