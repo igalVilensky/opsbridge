@@ -17,3 +17,32 @@ export async function createCase(input: CreateCaseInput) {
     },
   });
 }
+
+export async function findCaseById(id: string) {
+  return prisma.case.findUnique({
+    where: { id },
+    include: {
+      customerSnapshot: true,
+      orderSnapshot: true,
+      events: {
+        orderBy: {
+          createdAt: "asc",
+        },
+      },
+    },
+  });
+}
+
+export async function updateCaseStatus(
+  id: string,
+  status: string,
+  lastError: string | null = null,
+) {
+  return prisma.case.update({
+    where: { id },
+    data: {
+      status,
+      lastError,
+    },
+  });
+}

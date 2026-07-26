@@ -27,6 +27,8 @@ model Case {
   urgentWebhookSentAt DateTime?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
+  customerSnapshot CustomerSnapshot?
+  orderSnapshot OrderSnapshot?
 
   events CaseEvent[]
 }
@@ -42,4 +44,33 @@ model CaseEvent {
   case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
   @@index([caseId])
+}
+
+model CustomerSnapshot {
+  id                 String   @id @default(cuid())
+  caseId             String   @unique
+  externalCustomerId String
+  name               String
+  email              String
+  phone              String?
+  company            String?
+  status             String
+  rawData             String
+  createdAt           DateTime @default(now())
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+}
+
+model OrderSnapshot {
+  id                String   @id @default(cuid())
+  caseId            String   @unique
+  externalOrderId   String
+  orderStatus       String
+  shippingStatus    String
+  shippingProvider  String?
+  trackingNumber    String?
+  rawData           String
+  createdAt         DateTime @default(now())
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
 }

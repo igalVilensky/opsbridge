@@ -6,6 +6,8 @@ export default defineEventHandler(async (event) => {
   const foundCase = await prisma.case.findUnique({
     where: { id },
     include: {
+      customerSnapshot: true,
+      orderSnapshot: true,
       events: {
         orderBy: {
           createdAt: "asc",
