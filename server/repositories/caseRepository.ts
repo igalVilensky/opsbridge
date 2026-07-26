@@ -47,3 +47,35 @@ export async function updateCaseStatus(
     },
   });
 }
+
+export async function saveAiAssistance(
+  id: string,
+  assistance: {
+    summary: string;
+    suggestedAction: string;
+    draftResponse: string;
+  },
+) {
+  return prisma.case.update({
+    where: { id },
+    data: {
+      aiSummary: assistance.summary,
+      suggestedAction: assistance.suggestedAction,
+      draftResponse: assistance.draftResponse,
+    },
+  });
+}
+
+export async function approveCase(
+  id: string,
+  approvedResponse: string,
+) {
+  return prisma.case.update({
+    where: { id },
+    data: {
+      approvedResponse,
+      status: "APPROVED",
+      rejectionReason: null,
+    },
+  });
+}

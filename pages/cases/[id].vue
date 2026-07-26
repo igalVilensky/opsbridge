@@ -1,9 +1,41 @@
 <script setup lang="ts">
 const route = useRoute();
 
-const { data: supportCase } = await useFetch(
-  `/api/cases/${route.params.id}`,
+const {
+  data: supportCase,
+  refresh,
+} = await useFetch(`/api/cases/${route.params.id}`);
+
+const editableDraft = ref(supportCase.value?.draftResponse ?? "");
+const isApproving = ref(false);
+const actionError = ref("");
+
+watch(
+  () => supportCase.value?.draftResponse,
+  (draftResponse) => {
+    editableDraft.value = draftResponse ?? "";
+  },
 );
+
+async function approveDraft() {
+  isApproving.value = true;
+  actionError.value = "";
+
+  try {
+    await $fetch(`/api/cases/${route.params.id}/approve`, {
+      method: "POST",
+      body: {
+        approvedResponse: editableDraft.value,
+      },
+    });
+
+    await refresh();
+  } catch {
+    actionError.value = "Der Entwurf konnte nicht freigegeben werden.";
+  } finally {
+    isApproving.value = false;
+  }
+}
 </script>
 
 <template>
@@ -105,6 +137,53 @@ const { data: supportCase } = await useFetch(
     <section v-else>
       <h2>Letzter Anruf</h2>
       <p>Noch keine Anrufdaten geladen.</p>
+    </section>
+
+    <section v-if="supportCase.aiSummary">
+      <h2>KI-Unterstützung</h2>
+
+      <p>
+        <strong>Zusammenfassung:</strong>
+        {{ supportCase.aiSummary }}
+      </p>
+
+      <p>
+        <strong>Empfohlene Aktion:</strong>
+        {{ supportCase.suggestedAction }}
+      </p>
+
+      <label>
+        <strong>Antwortentwurf:</strong>
+
+        <textarea
+          v-model="editableDraft"
+          rows="12"
+          :disabled="supportCase.status === 'APPROVED'"
+        ></textarea>
+      </label>
+
+      <p v-if="actionError">
+        {{ actionError }}
+      </p>
+
+      <button
+        v-if="supportCase.status === 'READY_FOR_REVIEW'"
+        type="button"
+        :disabled="isApproving || !editableDraft.trim()"
+        @click="approveDraft"
+      >
+        {{ isApproving ? "Wird freigegeben..." : "Entwurf freigeben" }}
+      </button>
+
+      <div v-if="supportCase.status === 'APPROVED'">
+        <h3>Freigegebene Antwort</h3>
+        <pre>{{ supportCase.approvedResponse }}</pre>
+      </div>
+    </section>
+
+    <section v-else>
+      <h2>KI-Unterstützung</h2>
+      <p>Noch keine KI-Unterstützung generiert.</p>
     </section>
 
     <section>
