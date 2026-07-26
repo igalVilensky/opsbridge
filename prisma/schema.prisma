@@ -29,6 +29,7 @@ model Case {
   updatedAt           DateTime @updatedAt
   customerSnapshot CustomerSnapshot?
   orderSnapshot OrderSnapshot?
+  callSnapshot CallSnapshot?
 
   events CaseEvent[]
 }
@@ -71,6 +72,20 @@ model OrderSnapshot {
   trackingNumber    String?
   rawData           String
   createdAt         DateTime @default(now())
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+}
+
+model CallSnapshot {
+  id              String   @id @default(cuid())
+  caseId          String   @unique
+  externalCallId  String
+  calledAt        DateTime
+  durationSeconds Int
+  callStatus      String
+  note            String?
+  rawData         String
+  createdAt       DateTime @default(now())
 
   case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
 }

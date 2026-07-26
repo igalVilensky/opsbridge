@@ -8,6 +8,7 @@ export default defineEventHandler(async (event) => {
     include: {
       customerSnapshot: true,
       orderSnapshot: true,
+      callSnapshot: true,
       events: {
         orderBy: {
           createdAt: "asc",

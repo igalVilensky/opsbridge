@@ -24,6 +24,7 @@ export async function findCaseById(id: string) {
     include: {
       customerSnapshot: true,
       orderSnapshot: true,
+      callSnapshot: true,
       events: {
         orderBy: {
           createdAt: "asc",
