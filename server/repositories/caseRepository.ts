@@ -30,6 +30,23 @@ export async function findCaseById(id: string) {
           createdAt: "asc",
         },
       },
+      enrichmentRuns: {
+        orderBy: {
+          startedAt: "asc",
+        },
+        include: {
+          integrationRuns: {
+            orderBy: {
+              startedAt: "asc",
+            },
+          },
+        },
+      },
+      integrationRuns: {
+        orderBy: {
+          startedAt: "asc",
+        },
+      },
     },
   });
 }

@@ -8,16 +8,16 @@ datasource db {
 }
 
 model Case {
-  id                  String   @id @default(cuid())
+  id                  String            @id @default(cuid())
   subject             String
   originalMessage     String
   customerEmail       String?
   orderId             String?
   phoneNumber         String?
   department          String
-  priority            String   @default("MEDIUM")
-  status              String   @default("NEW")
-  externalRequestId   String?  @unique
+  priority            String            @default("MEDIUM")
+  status              String            @default("NEW")
+  externalRequestId   String?           @unique
   aiSummary           String?
   suggestedAction     String?
   draftResponse       String?
@@ -25,13 +25,15 @@ model Case {
   rejectionReason     String?
   lastError           String?
   urgentWebhookSentAt DateTime?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-  customerSnapshot CustomerSnapshot?
-  orderSnapshot OrderSnapshot?
-  callSnapshot CallSnapshot?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  customerSnapshot    CustomerSnapshot?
+  orderSnapshot       OrderSnapshot?
+  callSnapshot        CallSnapshot?
 
-  events CaseEvent[]
+  events          CaseEvent[]
+  enrichmentRuns  EnrichmentRun[]
+  integrationRuns IntegrationRun[]
 }
 
 model CaseEvent {
@@ -56,22 +58,22 @@ model CustomerSnapshot {
   phone              String?
   company            String?
   status             String
-  rawData             String
-  createdAt           DateTime @default(now())
+  rawData            String
+  createdAt          DateTime @default(now())
 
   case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
 }
 
 model OrderSnapshot {
-  id                String   @id @default(cuid())
-  caseId            String   @unique
-  externalOrderId   String
-  orderStatus       String
-  shippingStatus    String
-  shippingProvider  String?
-  trackingNumber    String?
-  rawData           String
-  createdAt         DateTime @default(now())
+  id               String   @id @default(cuid())
+  caseId           String   @unique
+  externalOrderId  String
+  orderStatus      String
+  shippingStatus   String
+  shippingProvider String?
+  trackingNumber   String?
+  rawData          String
+  createdAt        DateTime @default(now())
 
   case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
 }
@@ -88,4 +90,34 @@ model CallSnapshot {
   createdAt       DateTime @default(now())
 
   case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+}
+
+model IntegrationRun {
+  id              String    @id @default(cuid())
+  caseId          String
+  enrichmentRunId String?
+  integrationName String
+  status          String
+  errorMessage    String?
+  startedAt       DateTime  @default(now())
+  finishedAt      DateTime?
+
+  case          Case           @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  enrichmentRun EnrichmentRun? @relation(fields: [enrichmentRunId], references: [id], onDelete: Cascade)
+
+  @@index([caseId])
+  @@index([enrichmentRunId])
+  @@index([integrationName])
+  @@index([status])
+}
+
+model EnrichmentRun {
+  id        String   @id @default(cuid())
+  caseId    String
+  startedAt DateTime @default(now())
+
+  case            Case             @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  integrationRuns IntegrationRun[]
+
+  @@index([caseId])
 }

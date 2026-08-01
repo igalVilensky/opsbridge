@@ -11,6 +11,41 @@ import { saveCustomerSnapshot } from "../repositories/customerSnapshotRepository
 import { saveOrderSnapshot } from "../repositories/orderSnapshotRepository";
 import { saveCallSnapshot } from "../repositories/callSnapshotRepository";
 import { createCaseEvent } from "../repositories/eventRepository";
+import { startEnrichmentRun } from "../repositories/enrichmentRunRepository";
+import {
+  completeIntegrationRun,
+  failIntegrationRun,
+  type IntegrationName,
+  startIntegrationRun,
+} from "../repositories/integrationRunRepository";
+
+async function trackIntegrationRun<T>(
+  caseId: string,
+  enrichmentRunId: string,
+  integrationName: IntegrationName,
+  operation: () => Promise<T>,
+) {
+  const integrationRun = await startIntegrationRun(
+    caseId,
+    enrichmentRunId,
+    integrationName,
+  );
+
+  try {
+    const result = await operation();
+
+    await completeIntegrationRun(integrationRun.id);
+
+    return result;
+  } catch (error) {
+    await failIntegrationRun(
+      integrationRun.id,
+      error instanceof Error ? error.message : String(error),
+    );
+
+    throw error;
+  }
+}
 
 export async function enrichCase(caseId: string) {
   const supportCase = await findCaseById(caseId);
@@ -24,11 +59,18 @@ export async function enrichCase(caseId: string) {
 
   await updateCaseStatus(caseId, "ENRICHING");
 
+  const enrichmentRun = await startEnrichmentRun(caseId);
+
   let customerPhone = supportCase.phoneNumber;
 
   if (supportCase.customerEmail) {
-    const customer = await getCustomerByEmail(
-      supportCase.customerEmail,
+    const customer = await trackIntegrationRun(
+      caseId,
+      enrichmentRun.id,
+      "CRM",
+      () => getCustomerByEmail(
+        supportCase.customerEmail!,
+      ),
     );
 
     await saveCustomerSnapshot(caseId, customer);
@@ -48,7 +90,12 @@ export async function enrichCase(caseId: string) {
   }
 
   if (supportCase.orderId) {
-    const order = await getOrderById(supportCase.orderId);
+    const order = await trackIntegrationRun(
+      caseId,
+      enrichmentRun.id,
+      "FULFILLMENT",
+      () => getOrderById(supportCase.orderId!),
+    );
 
     await saveOrderSnapshot(caseId, order);
 
@@ -65,7 +112,12 @@ export async function enrichCase(caseId: string) {
   }
 
   if (customerPhone) {
-    const call = await getLatestCallByPhone(customerPhone);
+    const call = await trackIntegrationRun(
+      caseId,
+      enrichmentRun.id,
+      "CALL",
+      () => getLatestCallByPhone(customerPhone),
+    );
 
     await saveCallSnapshot(caseId, call);
 
