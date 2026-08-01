@@ -10,6 +10,22 @@ const editableDraft = ref(supportCase.value?.draftResponse ?? "");
 const isApproving = ref(false);
 const actionError = ref("");
 
+const latestEnrichmentRun = computed(() => {
+  const enrichmentRuns = supportCase.value?.enrichmentRuns ?? [];
+
+  return [...enrichmentRuns].sort(
+    (firstRun, secondRun) =>
+      new Date(secondRun.startedAt).getTime() -
+      new Date(firstRun.startedAt).getTime(),
+  )[0];
+});
+
+const integrationLabels: Record<string, string> = {
+  CRM: "CRM",
+  FULFILLMENT: "Fulfillment",
+  CALL: "Call System",
+};
+
 watch(
   () => supportCase.value?.draftResponse,
   (draftResponse) => {
@@ -137,6 +153,27 @@ async function approveDraft() {
     <section v-else>
       <h2>Letzter Anruf</h2>
       <p>Noch keine Anrufdaten geladen.</p>
+    </section>
+
+    <section>
+      <h2>Integration Status</h2>
+
+      <ul v-if="latestEnrichmentRun">
+        <li
+          v-for="integrationRun in latestEnrichmentRun.integrationRuns"
+          :key="integrationRun.id"
+        >
+          <strong>
+            {{ integrationLabels[integrationRun.integrationName] || integrationRun.integrationName }}
+          </strong>
+          <p>{{ integrationRun.status }}</p>
+          <p v-if="integrationRun.status === 'FAILED' && integrationRun.errorMessage">
+            {{ integrationRun.errorMessage }}
+          </p>
+        </li>
+      </ul>
+
+      <p v-else>Noch keine Integrationsläufe vorhanden.</p>
     </section>
 
     <section v-if="supportCase.aiSummary">
