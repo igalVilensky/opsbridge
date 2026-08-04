@@ -1,4 +1,8 @@
 <script setup lang="ts">
+definePageMeta({
+  title: "Case Detail",
+});
+
 const route = useRoute();
 
 const {

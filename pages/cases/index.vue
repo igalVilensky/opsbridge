@@ -1,9 +1,13 @@
 <script setup lang="ts">
+definePageMeta({
+  title: "Cases",
+});
+
 const { data: cases } = await useFetch("/api/cases");
 </script>
 
 <template>
-  <main class="mx-auto max-w-3xl p-6">
+  <main>
     <div class="mb-6 flex items-center justify-between gap-4">
       <h1 class="text-3xl font-bold text-slate-900">Fälle</h1>
 

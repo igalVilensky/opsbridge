@@ -1,4 +1,8 @@
 <script setup lang="ts">
+definePageMeta({
+  title: "Create Case",
+});
+
 const form = reactive({
   subject: "",
   originalMessage: "",
