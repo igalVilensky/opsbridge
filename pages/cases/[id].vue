@@ -11,7 +11,7 @@ const isApproving = ref(false);
 const actionError = ref("");
 
 const latestEnrichmentRun = computed(() => {
-  const enrichmentRuns = supportCase.value?.enrichmentRuns ?? [];
+  const enrichmentRuns = (supportCase.value as any)?.enrichmentRuns ?? [];
 
   return [...enrichmentRuns].sort(
     (firstRun, secondRun) =>

@@ -14,6 +14,14 @@ export default defineEventHandler(async (event) => {
           createdAt: "asc",
         },
       },
+      enrichmentRuns: {
+        orderBy: {
+          startedAt: "desc",
+        },
+        include: {
+          integrationRuns: true,
+        },
+      },
     },
   });
 
