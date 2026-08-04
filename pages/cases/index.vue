@@ -3,11 +3,14 @@ const { data: cases } = await useFetch("/api/cases");
 </script>
 
 <template>
-  <main>
-    <div>
-      <h1>Fälle</h1>
+  <main class="mx-auto max-w-3xl p-6">
+    <div class="mb-6 flex items-center justify-between gap-4">
+      <h1 class="text-3xl font-bold text-slate-900">Fälle</h1>
 
-      <NuxtLink to="/cases/new">
+      <NuxtLink
+        to="/cases/new"
+        class="rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
+      >
         Neuen Fall erstellen
       </NuxtLink>
     </div>
