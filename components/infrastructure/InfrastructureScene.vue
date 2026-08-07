@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { onBeforeUnmount, onMounted, ref, watch } from "vue";
 import type {
   InfrastructureConnection,
+  InfrastructureMetadataValue,
   InfrastructureNode,
 } from "~/shared/infrastructure";
 
@@ -34,21 +35,26 @@ type ConnectionVisual = {
   to: string;
   line: THREE.Line;
   material: THREE.LineBasicMaterial;
+  curve: THREE.QuadraticBezierCurve3;
   targetStatus: InfrastructureNode["status"];
   baseOpacity: number;
   baseColor: THREE.Color;
 };
 
 type FlowParticle = {
-  from: THREE.Vector3;
-  to: THREE.Vector3;
+  curve: THREE.QuadraticBezierCurve3;
   sourceId: string;
   targetId: string;
   sprite: THREE.Sprite;
   progress: number;
-  baseSpeed: number;
+  speed: number;
   targetStatus: InfrastructureNode["status"];
   baseOpacity: number;
+  direction: "outbound" | "inbound";
+  baseScale: number;
+  pulsePhase: number;
+  pulseSpeed: number;
+  pulseAmplitude: number;
 };
 
 let scene: THREE.Scene | null = null;
@@ -136,6 +142,35 @@ function statusPulseSpeed(status: InfrastructureNode["status"]) {
   if (status === "healthy") return 0.95;
   if (status === "degraded") return 2.4;
   return 0.45;
+}
+
+function getNodeActivitySignal(metadata?: Record<string, InfrastructureMetadataValue>) {
+  if (!metadata) return 0;
+
+  let signal = 0;
+  for (const [key, value] of Object.entries(metadata)) {
+    if (typeof value !== "number" || value <= 0) continue;
+    if (/(runs|requests|events|cases|jobs|messages|syncs|records)/i.test(key)) {
+      signal += value;
+    }
+  }
+
+  return signal;
+}
+
+function getFlowParticleCount(status: InfrastructureNode["status"], activitySignal: number) {
+  const activityTier =
+    activitySignal <= 0 ? 0 : activitySignal <= 5 ? 1 : activitySignal <= 20 ? 2 : 3;
+
+  if (status === "healthy") {
+    return activityTier === 0 ? 1 : activityTier === 1 ? 2 : 3;
+  }
+
+  if (status === "degraded") {
+    return activityTier === 0 ? 1 : activityTier === 1 ? 1 : 2;
+  }
+
+  return 1;
 }
 
 function typeColor(type: InfrastructureNode["type"]) {
@@ -314,18 +349,41 @@ function getBaseGlowOpacity(status: InfrastructureNode["status"]) {
 function getFlowSpeed(status: InfrastructureNode["status"], direction: "outbound" | "inbound") {
   const base =
     status === "healthy"
-      ? 0.22
+      ? 0.28
       : status === "degraded"
-        ? 0.15
-        : 0.08;
+        ? 0.2
+        : 0.16;
 
   return direction === "outbound" ? base : base * 0.9;
 }
 
 function getFlowOpacity(status: InfrastructureNode["status"]) {
-  if (status === "healthy") return 0.42;
-  if (status === "degraded") return 0.3;
-  return 0.16;
+  if (status === "healthy") return 0.68;
+  if (status === "degraded") return 0.5;
+  return 0.26;
+}
+
+function getFlowScale(status: InfrastructureNode["status"], direction: "outbound" | "inbound") {
+  const base =
+    status === "healthy"
+      ? 0.38
+      : status === "degraded"
+        ? 0.32
+        : 0.24;
+
+  return direction === "outbound" ? base * 1.08 : base * 0.92;
+}
+
+function getFlowPulse(status: InfrastructureNode["status"]) {
+  if (status === "healthy") {
+    return { speed: 1.55, amplitude: 0.11 };
+  }
+
+  if (status === "degraded") {
+    return { speed: 1.95, amplitude: 0.16 };
+  }
+
+  return { speed: 1.05, amplitude: 0.06 };
 }
 
 function registerConnection(sourceId: string, targetId: string) {
@@ -403,6 +461,7 @@ function rebuildSceneGraph() {
     midpoint.y += 1.08;
 
     const curve = new THREE.QuadraticBezierCurve3(start, midpoint, end);
+    const reverseCurve = new THREE.QuadraticBezierCurve3(end, midpoint, start);
     const points = curve.getPoints(28);
     const geometry = new THREE.BufferGeometry().setFromPoints(points);
     const baseColor = connectionTint.clone();
@@ -418,47 +477,64 @@ function rebuildSceneGraph() {
       to: toNode.id,
       line,
       material,
+      curve,
       targetStatus: toNode.status,
       baseOpacity: 0.26,
       baseColor,
     });
 
     const accentColor = new THREE.Color(statusColor(toNode.status));
-    const outboundSprite = createGlowSprite(
-      accentColor.getHex(),
-      0.4,
-      getFlowOpacity(toNode.status),
+    const activitySignal = Math.max(
+      getNodeActivitySignal(fromNode.metadata),
+      getNodeActivitySignal(toNode.metadata),
     );
-    flowGroup.add(outboundSprite);
-    flowParticles.push({
-      from: start,
-      to: end,
-      sourceId: fromNode.id,
-      targetId: toNode.id,
-      sprite: outboundSprite,
-      progress: Math.random(),
-      baseSpeed: getFlowSpeed(toNode.status, "outbound"),
-      targetStatus: toNode.status,
-      baseOpacity: getFlowOpacity(toNode.status),
-    });
+    const particleCount = getFlowParticleCount(toNode.status, activitySignal);
+    const pulse = getFlowPulse(toNode.status);
 
-    const inboundSprite = createGlowSprite(
-      accentColor.getHex(),
-      0.25,
-      getFlowOpacity(toNode.status) * 0.8,
+    const buildParticleSet = (
+      direction: "outbound" | "inbound",
+      sourceId: string,
+      targetId: string,
+      curveForDirection: THREE.QuadraticBezierCurve3,
+      count: number,
+      opacityMultiplier: number,
+    ) => {
+      const baseOpacity = getFlowOpacity(toNode.status) * opacityMultiplier;
+      const baseScale = getFlowScale(toNode.status, direction);
+      const speed = getFlowSpeed(toNode.status, direction);
+
+      for (let index = 0; index < count; index += 1) {
+        const sprite = createGlowSprite(accentColor.getHex(), baseScale, baseOpacity);
+        flowGroup.add(sprite);
+
+        const stagger = (index + Math.random() * 0.16) / count;
+        flowParticles.push({
+          curve: curveForDirection,
+          sourceId,
+          targetId,
+          sprite,
+          progress: stagger % 1,
+          speed,
+          targetStatus: toNode.status,
+          baseOpacity,
+          direction,
+          baseScale,
+          pulsePhase: Math.random() * Math.PI * 2,
+          pulseSpeed: pulse.speed,
+          pulseAmplitude: pulse.amplitude,
+        });
+      }
+    };
+
+    buildParticleSet("outbound", fromNode.id, toNode.id, curve, particleCount, 1);
+    buildParticleSet(
+      "inbound",
+      toNode.id,
+      fromNode.id,
+      reverseCurve,
+      Math.max(1, particleCount - 1),
+      0.82,
     );
-    flowGroup.add(inboundSprite);
-    flowParticles.push({
-      from: end,
-      to: start,
-      sourceId: toNode.id,
-      targetId: fromNode.id,
-      sprite: inboundSprite,
-      progress: Math.random(),
-      baseSpeed: getFlowSpeed(toNode.status, "inbound"),
-      targetStatus: toNode.status,
-      baseOpacity: getFlowOpacity(toNode.status) * 0.8,
-    });
   }
 
   updateSelectionRing();
@@ -582,8 +658,8 @@ function animate() {
 
   animationFrameId = window.requestAnimationFrame(animate);
 
-  const elapsed = clock.getElapsedTime();
-  const delta = clock.getDelta();
+  const delta = Math.min(clock.getDelta(), 0.05);
+  const elapsed = clock.elapsedTime;
   const selectedId = props.selectedNodeId ?? null;
   const relationshipDarken = new THREE.Color(0x0f172a);
 
@@ -649,34 +725,41 @@ function animate() {
     const selected = selectedId
       ? particle.sourceId === selectedId || particle.targetId === selectedId
       : true;
-    const directBoost = selected ? 1 : 0.55;
-    const statusFactor =
+    const directBoost = selected ? 1 : selectedId ? 0.22 : 1;
+    const speedFactor =
+      particle.targetStatus === "healthy"
+        ? 1
+        : particle.targetStatus === "degraded"
+          ? 0.86
+          : 0.74;
+    const opacityFactor =
       particle.targetStatus === "healthy"
         ? 1
         : particle.targetStatus === "degraded"
           ? 0.72
           : 0.45;
 
-    particle.progress += particle.baseSpeed * statusFactor * delta * directBoost;
-    if (particle.progress > 1) particle.progress -= 1;
+    particle.progress = (particle.progress + particle.speed * speedFactor * delta) % 1;
 
     const eased = particle.progress;
-    particle.sprite.position.lerpVectors(particle.from, particle.to, eased);
-    particle.sprite.position.y += Math.sin(eased * Math.PI) * 1.06;
+    particle.curve.getPointAt(eased, particle.sprite.position);
 
     const material = particle.sprite.material as THREE.SpriteMaterial;
     material.color.setHex(
       particle.targetStatus === "healthy"
-        ? 0x7dd3fc
+        ? 0x4ade80
         : particle.targetStatus === "degraded"
-          ? 0xfbbf24
+          ? 0xf59e0b
           : 0x94a3b8,
     );
-    const fade = Math.sin(eased * Math.PI);
+    const fade = 0.72 + Math.sin((eased * Math.PI * 2 + particle.pulsePhase) * particle.pulseSpeed) * particle.pulseAmplitude;
+    const directionBoost = particle.direction === "outbound" ? 1.08 : 0.92;
+    const sizeBoost = particle.direction === "outbound" ? 1.04 : 0.94;
     material.opacity = Math.max(
-      0.06,
-      particle.baseOpacity * statusFactor * fade * (selected ? 1 : 0.88),
+      0.05,
+      particle.baseOpacity * opacityFactor * fade * directionBoost * directBoost,
     );
+    particle.sprite.scale.setScalar(particle.baseScale * sizeBoost * (selected ? 1 : selectedId ? 0.92 : 1));
   }
 
   if (selectionRing && selectionRing.visible) {
@@ -958,6 +1041,31 @@ onBeforeUnmount(() => {
   >
     <div class="pointer-events-none absolute left-4 top-4 z-10 rounded-md border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-slate-200">
       OpsBridge infrastructure model
+    </div>
+    <div class="pointer-events-none absolute right-4 top-4 z-10 max-w-[14rem] rounded-md border border-white/10 bg-slate-950/70 px-3 py-2 text-[11px] leading-4 text-slate-300">
+      <p class="font-medium text-slate-100">Legend</p>
+      <ul class="mt-1.5 space-y-1">
+        <li class="flex items-start gap-2">
+          <span class="mt-1.5 h-2 w-2 rounded-full bg-cyan-300" />
+          <span>Moving particles = communication flow</span>
+        </li>
+        <li class="flex items-start gap-2">
+          <span class="mt-1.5 h-2 w-2 rounded-full bg-emerald-400" />
+          <span>Green = healthy</span>
+        </li>
+        <li class="flex items-start gap-2">
+          <span class="mt-1.5 h-2 w-2 rounded-full bg-amber-400" />
+          <span>Amber = degraded</span>
+        </li>
+        <li class="flex items-start gap-2">
+          <span class="mt-1.5 h-2 w-2 rounded-full bg-slate-400" />
+          <span>Gray = unknown</span>
+        </li>
+        <li class="flex items-start gap-2">
+          <span class="mt-1.5 h-2 w-2 rounded-full bg-sky-300" />
+          <span>Brighter motion = more active connections</span>
+        </li>
+      </ul>
     </div>
     <div class="pointer-events-none absolute bottom-4 left-4 z-10 rounded-md border border-white/10 bg-slate-950/70 px-3 py-2 text-[11px] text-slate-400">
       Drag to orbit · scroll to zoom · click a node to inspect
