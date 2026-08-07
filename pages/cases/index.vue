@@ -4,7 +4,7 @@ import PriorityBadge from "~/components/ui/PriorityBadge.vue";
 import StatusBadge from "~/components/ui/StatusBadge.vue";
 
 definePageMeta({
-  title: "Cases",
+  title: "Fälle",
 });
 
 const { data: cases, status } = await useFetch("/api/cases");

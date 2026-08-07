@@ -82,7 +82,7 @@ export async function enrichCase(caseId: string) {
         await createCaseEvent(
           caseId,
           "CRM_DATA_LOADED",
-          "Customer data loaded from CRM",
+          "Kundendaten aus CRM geladen",
           {
             externalCustomerId: customer.id,
           },
@@ -104,7 +104,7 @@ export async function enrichCase(caseId: string) {
         await createCaseEvent(
           caseId,
           "ORDER_DATA_LOADED",
-          "Order data loaded from fulfillment system",
+          "Bestelldaten aus dem Fulfillment-System geladen",
           {
             externalOrderId: order.id,
           },
@@ -126,7 +126,7 @@ export async function enrichCase(caseId: string) {
         await createCaseEvent(
           caseId,
           "CALL_DATA_LOADED",
-          "Latest call loaded from call system",
+          "Letzter Anruf aus dem Call System geladen",
           {
             externalCallId: call.id,
           },

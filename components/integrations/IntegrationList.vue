@@ -1,5 +1,5 @@
 <template>
   <div>
-    Integration monitoring placeholder
+    Integrationsüberwachung
   </div>
 </template>

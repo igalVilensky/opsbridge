@@ -1,8 +1,13 @@
 <script setup lang="ts">
 import SectionCard from "~/components/ui/SectionCard.vue";
+import {
+  integrationHealthLabels,
+  integrationRunStatusLabels,
+  resolveLabel,
+} from "~/utils/labels";
 
 definePageMeta({
-  title: "Integrations",
+  title: "Integrationen",
 });
 
 type IntegrationName = "CRM" | "FULFILLMENT" | "CALL";
@@ -40,12 +45,6 @@ const integrationLabels: Record<IntegrationName, string> = {
   CRM: "CRM",
   FULFILLMENT: "Fulfillment",
   CALL: "Call System",
-};
-
-const healthLabels: Record<IntegrationHealth, string> = {
-  HEALTHY: "Healthy",
-  DEGRADED: "Degraded",
-  UNKNOWN: "Unknown",
 };
 
 const healthStyles: Record<IntegrationHealth, string> = {
@@ -108,7 +107,18 @@ function formatDateTime(value: string | null) {
 }
 
 function formatSuccessRate(value: number) {
-  return `${value.toFixed(1)}%`;
+  return `${new Intl.NumberFormat("de-DE", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format(value)}%`;
+}
+
+function integrationHealthLabel(value: IntegrationHealth) {
+  return resolveLabel(integrationHealthLabels, value);
+}
+
+function runStatusLabel(value: string) {
+  return resolveLabel(integrationRunStatusLabels, value);
 }
 
 function statusClass(statusValue: string) {
@@ -119,7 +129,7 @@ function statusClass(statusValue: string) {
 <template>
   <main class="space-y-6">
     <div>
-      <h1 class="text-2xl font-semibold text-slate-950">Integrations</h1>
+      <h1 class="text-2xl font-semibold text-slate-950">Integrationen</h1>
       <p class="mt-1 text-sm text-slate-500">
         Operative Übersicht über den Zustand der externen Systeme und die zuletzt
         ausgeführten Integrationen.
@@ -145,7 +155,7 @@ function statusClass(statusValue: string) {
               {{ integrationLabels[summary.integrationName] }}
             </h2>
             <p class="mt-1 text-xs text-slate-500">
-              {{ summary.totalRuns }} runs
+              {{ summary.totalRuns }} Läufe
             </p>
           </div>
 
@@ -153,27 +163,27 @@ function statusClass(statusValue: string) {
             class="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium"
             :class="healthStyles[summary.health]"
           >
-            {{ healthLabels[summary.health] }}
+            {{ integrationHealthLabel(summary.health) }}
           </span>
         </div>
 
         <dl class="mt-4 space-y-2 text-sm">
           <div class="flex items-center justify-between gap-3">
-            <dt class="text-slate-500">Successful</dt>
+            <dt class="text-slate-500">Erfolgreich</dt>
             <dd class="font-medium text-slate-950">{{ summary.successfulRuns }}</dd>
           </div>
           <div class="flex items-center justify-between gap-3">
-            <dt class="text-slate-500">Failed</dt>
+            <dt class="text-slate-500">Fehlgeschlagen</dt>
             <dd class="font-medium text-slate-950">{{ summary.failedRuns }}</dd>
           </div>
           <div class="flex items-center justify-between gap-3">
-            <dt class="text-slate-500">Success rate</dt>
+            <dt class="text-slate-500">Erfolgsquote</dt>
             <dd class="font-medium text-slate-950">
               {{ formatSuccessRate(summary.successRate) }}
             </dd>
           </div>
           <div class="flex items-center justify-between gap-3">
-            <dt class="text-slate-500">Last run</dt>
+            <dt class="text-slate-500">Letzte Ausführung</dt>
             <dd class="font-medium text-slate-950">
               {{ formatDateTime(summary.lastRunAt) }}
             </dd>
@@ -183,15 +193,15 @@ function statusClass(statusValue: string) {
     </section>
 
     <SectionCard
-      title="Recent Integration Runs"
-      description="Latest executions across CRM, Fulfillment, and Call System."
+      title="Letzte Integrationsläufe"
+      description="Aktuelle Ausführungen über CRM, Fulfillment und Call System."
     >
       <div v-if="isLoading" class="py-8 text-sm text-slate-500">
         Integrationsdaten werden geladen …
       </div>
 
       <div v-else-if="!error && !recentRuns.length" class="py-8 text-sm text-slate-500">
-        No integration runs yet.
+        Noch keine Integrationsläufe vorhanden.
       </div>
 
       <div v-else class="overflow-x-auto">
@@ -199,11 +209,11 @@ function statusClass(statusValue: string) {
           <thead>
             <tr class="text-left text-xs uppercase tracking-wide text-slate-500">
               <th class="py-3 pr-4 font-medium">Integration</th>
-              <th class="py-3 pr-4 font-medium">Case</th>
+              <th class="py-3 pr-4 font-medium">Fall</th>
               <th class="py-3 pr-4 font-medium">Status</th>
-              <th class="py-3 pr-4 font-medium">Started</th>
-              <th class="py-3 pr-4 font-medium">Finished</th>
-              <th class="py-3 font-medium">Error</th>
+              <th class="py-3 pr-4 font-medium">Gestartet</th>
+              <th class="py-3 pr-4 font-medium">Beendet</th>
+              <th class="py-3 font-medium">Fehler</th>
             </tr>
           </thead>
 
@@ -221,7 +231,7 @@ function statusClass(statusValue: string) {
                   <span v-if="run.caseSubject" class="block truncate font-medium">
                     {{ run.caseSubject }}
                   </span>
-                  <span class="block text-xs text-slate-500">Case {{ run.caseId }}</span>
+                  <span class="block text-xs text-slate-500">Fall {{ run.caseId }}</span>
                 </NuxtLink>
               </td>
 
@@ -230,7 +240,7 @@ function statusClass(statusValue: string) {
                   class="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium"
                   :class="statusClass(run.status)"
                 >
-                  {{ run.status }}
+                  {{ runStatusLabel(run.status) }}
                 </span>
               </td>
 

@@ -1040,35 +1040,35 @@ onBeforeUnmount(() => {
     class="relative min-h-[32rem] overflow-hidden rounded-lg border border-slate-200 bg-slate-950"
   >
     <div class="pointer-events-none absolute left-4 top-4 z-10 rounded-md border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-slate-200">
-      OpsBridge infrastructure model
+      OpsBridge-Infrastrukturmodell
     </div>
     <div class="pointer-events-none absolute right-4 top-4 z-10 max-w-[14rem] rounded-md border border-white/10 bg-slate-950/70 px-3 py-2 text-[11px] leading-4 text-slate-300">
-      <p class="font-medium text-slate-100">Legend</p>
+      <p class="font-medium text-slate-100">Legende</p>
       <ul class="mt-1.5 space-y-1">
         <li class="flex items-start gap-2">
           <span class="mt-1.5 h-2 w-2 rounded-full bg-cyan-300" />
-          <span>Moving particles = communication flow</span>
+          <span>Bewegte Punkte = Kommunikations-/Datenfluss</span>
         </li>
         <li class="flex items-start gap-2">
           <span class="mt-1.5 h-2 w-2 rounded-full bg-emerald-400" />
-          <span>Green = healthy</span>
+          <span>Grün = verfügbar</span>
         </li>
         <li class="flex items-start gap-2">
           <span class="mt-1.5 h-2 w-2 rounded-full bg-amber-400" />
-          <span>Amber = degraded</span>
+          <span>Gelb/Orange = beeinträchtigt</span>
         </li>
         <li class="flex items-start gap-2">
           <span class="mt-1.5 h-2 w-2 rounded-full bg-slate-400" />
-          <span>Gray = unknown</span>
+          <span>Grau = unbekannt</span>
         </li>
         <li class="flex items-start gap-2">
           <span class="mt-1.5 h-2 w-2 rounded-full bg-sky-300" />
-          <span>Brighter motion = more active connections</span>
+          <span>Hellere Bewegung = aktivere Verbindung</span>
         </li>
       </ul>
     </div>
     <div class="pointer-events-none absolute bottom-4 left-4 z-10 rounded-md border border-white/10 bg-slate-950/70 px-3 py-2 text-[11px] text-slate-400">
-      Drag to orbit · scroll to zoom · click a node to inspect
+      Ziehen zum Drehen · Scrollen zum Zoomen · ein System anklicken, um Details anzuzeigen
     </div>
   </div>
 </template>

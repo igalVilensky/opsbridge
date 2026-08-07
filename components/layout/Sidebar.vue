@@ -7,9 +7,9 @@ type NavigationItem = {
 const route = useRoute();
 
 const navigationItems: NavigationItem[] = [
-  { label: "Cases", to: "/cases" },
-  { label: "Infrastructure", to: "/infrastructure" },
-  { label: "Integrations", to: "/integrations" },
+  { label: "Fälle", to: "/cases" },
+  { label: "Infrastruktur", to: "/infrastructure" },
+  { label: "Integrationen", to: "/integrations" },
 ];
 
 function isActivePath(path: string) {
@@ -32,13 +32,13 @@ function isActivePath(path: string) {
         <div class="min-w-0">
           <p class="truncate text-base font-semibold text-slate-950">OpsBridge</p>
           <p class="truncate text-xs font-medium uppercase tracking-wide text-slate-500">
-            Operations Console
+            Betriebskonsole
           </p>
         </div>
       </div>
 
       <nav
-        aria-label="Primary navigation"
+        aria-label="Primäre Navigation"
         class="flex gap-2 overflow-x-auto px-4 py-3 sm:px-6 lg:flex-1 lg:flex-col lg:gap-1 lg:overflow-visible lg:py-6"
       >
         <NuxtLink
@@ -59,11 +59,11 @@ function isActivePath(path: string) {
 
       <div class="hidden border-t border-slate-200 p-6 lg:block">
         <p class="text-xs font-medium uppercase tracking-wide text-slate-500">
-          Environment
+          Umgebung
         </p>
         <div class="mt-3 flex items-center gap-2">
           <span class="size-2 rounded-full bg-emerald-500"></span>
-          <span class="text-sm font-medium text-slate-700">Production</span>
+          <span class="text-sm font-medium text-slate-700">Produktion</span>
         </div>
       </div>
     </div>

@@ -69,7 +69,7 @@ export async function generateCaseAssistance(caseId: string) {
     await createCaseEvent(
       caseId,
       "AI_SUMMARY_GENERATED",
-      "AI assistance generated",
+      "KI-Unterstützung generiert",
     );
   }
 

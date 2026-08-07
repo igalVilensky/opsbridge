@@ -1,6 +1,12 @@
 <script setup lang="ts">
 import InfrastructureScene from "~/components/infrastructure/InfrastructureScene.vue";
 import SectionCard from "~/components/ui/SectionCard.vue";
+import {
+  infrastructureMetadataLabels,
+  infrastructureStatusLabels,
+  infrastructureTypeLabels,
+  resolveLabel,
+} from "~/utils/labels";
 import type {
   InfrastructureNode,
   InfrastructureResponse,
@@ -8,7 +14,7 @@ import type {
 } from "~/shared/infrastructure";
 
 definePageMeta({
-  title: "Infrastructure",
+  title: "Infrastruktur",
 });
 
 const {
@@ -89,15 +95,25 @@ function handleNodeSelection(node: InfrastructureNode) {
   selectedNodeId.value = node.id;
 }
 
-function formatLabel(value: string) {
-  return value.charAt(0).toUpperCase() + value.slice(1);
+function formatTypeLabel(value: string) {
+  return resolveLabel(infrastructureTypeLabels, value);
 }
 
 function formatMetadataLabel(key: string) {
+  const knownLabel = infrastructureMetadataLabels[key];
+
+  if (knownLabel) {
+    return knownLabel;
+  }
+
   return key
     .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
     .replace(/[_-]+/g, " ")
     .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function formatStatusLabel(value: InfrastructureNode["status"]) {
+  return resolveLabel(infrastructureStatusLabels, value);
 }
 
 function formatMetadataValue(key: string, value: InfrastructureMetadataValue) {
@@ -107,10 +123,13 @@ function formatMetadataValue(key: string, value: InfrastructureMetadataValue) {
 
   if (typeof value === "number") {
     if (key.toLowerCase().includes("rate")) {
-      return `${value.toFixed(1)}%`;
+      return `${new Intl.NumberFormat("de-DE", {
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1,
+      }).format(value)}%`;
     }
 
-    return value.toLocaleString();
+    return new Intl.NumberFormat("de-DE").format(value);
   }
 
   if (typeof value === "string") {
@@ -120,7 +139,7 @@ function formatMetadataValue(key: string, value: InfrastructureMetadataValue) {
     if (looksLikeDate) {
       const parsed = new Date(value);
       if (!Number.isNaN(parsed.getTime())) {
-        return new Intl.DateTimeFormat("en-US", {
+        return new Intl.DateTimeFormat("de-DE", {
           dateStyle: "medium",
           timeStyle: "short",
         }).format(parsed);
@@ -144,23 +163,23 @@ const statusDotClass: Record<InfrastructureNode["status"], string> = {
   <main class="space-y-6">
     <div class="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h1 class="text-2xl font-semibold text-slate-950">Infrastructure</h1>
+        <h1 class="text-2xl font-semibold text-slate-950">Infrastruktur</h1>
         <p class="mt-1 text-sm text-slate-500">
-          3D overview of the core OpsBridge systems and their connections.
+          3D-Übersicht der zentralen OpsBridge-Systeme und ihrer Verbindungen.
         </p>
       </div>
 
       <div v-if="!isLoading && nodes.length" class="flex items-center gap-2 text-xs text-slate-500">
         <span class="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1">
           <span class="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-          {{ nodes.length }} systems
+          {{ nodes.length }} Systeme
         </span>
         <span
           v-if="degradedCount"
           class="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-amber-700"
         >
           <span class="h-1.5 w-1.5 rounded-full bg-amber-400" />
-          {{ degradedCount }} degraded
+          {{ degradedCount }} beeinträchtigte Systeme
         </span>
       </div>
     </div>
@@ -169,23 +188,23 @@ const statusDotClass: Record<InfrastructureNode["status"], string> = {
       v-if="error"
       class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
     >
-      The infrastructure snapshot could not be loaded right now.
+      Die Infrastrukturdaten konnten derzeit nicht geladen werden.
     </p>
 
     <SectionCard
       v-else
-      title="System Architecture"
-      description="Rotate, zoom, and click a node to inspect it."
+      title="Systemarchitektur"
+      description="Drehen, zoomen und ein System anklicken, um Details anzuzeigen."
     >
       <div v-if="isLoading" class="py-12 text-sm text-slate-500">
-        Infrastructure data is loading …
+        Infrastrukturdaten werden geladen …
       </div>
 
       <div
         v-else-if="!nodes.length"
         class="py-12 text-sm text-slate-500"
       >
-        No infrastructure nodes are available yet.
+        Noch keine Infrastruktursysteme verfügbar.
       </div>
 
       <div v-else class="grid gap-6 lg:grid-cols-[minmax(0,2fr)_20rem]">
@@ -199,7 +218,7 @@ const statusDotClass: Record<InfrastructureNode["status"], string> = {
         <aside class="rounded-lg border border-slate-200 bg-slate-50 p-4">
           <div v-if="selectedNode">
             <p class="text-xs font-medium uppercase tracking-wide text-slate-500">
-              Selected node
+              Ausgewähltes System
             </p>
 
             <h2 class="mt-2 text-lg font-semibold text-slate-950">
@@ -208,9 +227,9 @@ const statusDotClass: Record<InfrastructureNode["status"], string> = {
 
             <dl class="mt-4 space-y-3 text-sm">
               <div>
-                <dt class="text-slate-500">Type</dt>
+                <dt class="text-slate-500">Typ</dt>
                 <dd class="mt-0.5 font-medium text-slate-950">
-                  {{ formatLabel(selectedNode.type) }}
+                  {{ formatTypeLabel(selectedNode.type) }}
                 </dd>
               </div>
 
@@ -218,12 +237,12 @@ const statusDotClass: Record<InfrastructureNode["status"], string> = {
                 <dt class="text-slate-500">Status</dt>
                 <dd class="mt-0.5 inline-flex items-center gap-1.5 font-medium text-slate-950">
                   <span class="h-1.5 w-1.5 rounded-full" :class="statusDotClass[selectedNode.status]" />
-                  {{ formatLabel(selectedNode.status) }}
+                  {{ formatStatusLabel(selectedNode.status) }}
                 </dd>
               </div>
 
               <div>
-                <dt class="text-slate-500">Description</dt>
+                <dt class="text-slate-500">Beschreibung</dt>
                 <dd class="mt-0.5 text-slate-700">
                   {{ selectedNode.description }}
                 </dd>
@@ -232,7 +251,7 @@ const statusDotClass: Record<InfrastructureNode["status"], string> = {
 
             <div v-if="selectedNodeMetadata.length" class="mt-5">
               <p class="text-xs font-medium uppercase tracking-wide text-slate-500">
-                Operational metadata
+                Betriebsdaten
               </p>
 
               <dl class="mt-2 space-y-3 text-sm">
@@ -253,7 +272,7 @@ const statusDotClass: Record<InfrastructureNode["status"], string> = {
 
             <div class="mt-5">
               <p class="text-xs font-medium uppercase tracking-wide text-slate-500">
-                Connected systems
+                Verbundene Systeme
               </p>
 
               <ul v-if="connectedSystems.length" class="mt-2 space-y-2 text-sm">
@@ -270,13 +289,13 @@ const statusDotClass: Record<InfrastructureNode["status"], string> = {
               </ul>
 
               <p v-else class="mt-2 text-sm text-slate-500">
-                No direct connections found.
+                Keine direkten Verbindungen gefunden.
               </p>
             </div>
           </div>
 
           <div v-else class="text-sm text-slate-500">
-            Select a node in the visualization to view its details.
+            Wählen Sie ein System in der Visualisierung aus, um Details anzuzeigen.
           </div>
         </aside>
       </div>

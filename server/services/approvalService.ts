@@ -39,7 +39,7 @@ export async function approveCaseService(
   await createCaseEvent(
     caseId,
     "DRAFT_APPROVED",
-    "Draft response approved",
+    "Antwortentwurf freigegeben",
   );
 
   return findCaseById(caseId);

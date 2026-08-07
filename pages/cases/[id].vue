@@ -1,11 +1,17 @@
 <script setup lang="ts">
-import { departmentLabels } from "~/utils/labels";
+import {
+  caseEventLabels,
+  caseSnapshotStatusLabels,
+  departmentLabels,
+  integrationRunStatusLabels,
+  resolveLabel,
+} from "~/utils/labels";
 import PriorityBadge from "~/components/ui/PriorityBadge.vue";
 import StatusBadge from "~/components/ui/StatusBadge.vue";
 import SectionCard from "~/components/ui/SectionCard.vue";
 
 definePageMeta({
-  title: "Case Detail",
+  title: "Falldetails",
 });
 
 const route = useRoute();
@@ -80,6 +86,25 @@ const integrationStatusStyles: Record<string, string> = {
 
 function integrationDotClass(status: string) {
   return integrationStatusStyles[status] ?? "bg-slate-400";
+}
+
+function integrationStatusLabel(status: string) {
+  return resolveLabel(integrationRunStatusLabels, status);
+}
+
+function caseSnapshotStatusLabel(status: string | null | undefined) {
+  return resolveLabel(caseSnapshotStatusLabels, status);
+}
+
+function caseEventLabel(eventType: string) {
+  return resolveLabel(caseEventLabels, eventType);
+}
+
+function formatDateTime(value: string | Date) {
+  return new Intl.DateTimeFormat("de-DE", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
 }
 
 function clearActionSuccess() {
@@ -307,7 +332,9 @@ async function approveDraft() {
             <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">
               Kundenstatus
             </dt>
-            <dd class="mt-0.5 text-slate-900">{{ supportCase.customerSnapshot.status }}</dd>
+            <dd class="mt-0.5 text-slate-900">
+              {{ caseSnapshotStatusLabel(supportCase.customerSnapshot.status) }}
+            </dd>
           </div>
         </dl>
         <p v-else class="text-sm text-slate-500">Noch keine CRM-Daten geladen.</p>
@@ -327,13 +354,17 @@ async function approveDraft() {
             <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">
               Bestellstatus
             </dt>
-            <dd class="mt-0.5 text-slate-900">{{ supportCase.orderSnapshot.orderStatus }}</dd>
+            <dd class="mt-0.5 text-slate-900">
+              {{ caseSnapshotStatusLabel(supportCase.orderSnapshot.orderStatus) }}
+            </dd>
           </div>
           <div>
             <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">
               Versandstatus
             </dt>
-            <dd class="mt-0.5 text-slate-900">{{ supportCase.orderSnapshot.shippingStatus }}</dd>
+            <dd class="mt-0.5 text-slate-900">
+              {{ caseSnapshotStatusLabel(supportCase.orderSnapshot.shippingStatus) }}
+            </dd>
           </div>
           <div>
             <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">
@@ -364,7 +395,7 @@ async function approveDraft() {
           <div>
             <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Zeitpunkt</dt>
             <dd class="mt-0.5 text-slate-900">
-              {{ new Date(supportCase.callSnapshot.calledAt).toLocaleString("de-DE") }}
+              {{ formatDateTime(supportCase.callSnapshot.calledAt) }}
             </dd>
           </div>
           <div>
@@ -375,7 +406,9 @@ async function approveDraft() {
           </div>
           <div>
             <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Status</dt>
-            <dd class="mt-0.5 text-slate-900">{{ supportCase.callSnapshot.callStatus }}</dd>
+            <dd class="mt-0.5 text-slate-900">
+              {{ caseSnapshotStatusLabel(supportCase.callSnapshot.callStatus) }}
+            </dd>
           </div>
           <div>
             <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">Notiz</dt>
@@ -388,7 +421,7 @@ async function approveDraft() {
       </SectionCard>
     </div>
 
-    <SectionCard title="Integration Status">
+    <SectionCard title="Integrationsstatus">
       <ul v-if="latestEnrichmentRun" class="grid gap-3 sm:grid-cols-3">
         <li
           v-for="integrationRun in latestEnrichmentRun.integrationRuns"
@@ -401,7 +434,9 @@ async function approveDraft() {
               {{ integrationLabels[integrationRun.integrationName] || integrationRun.integrationName }}
             </span>
           </div>
-          <p class="mt-1 text-xs text-slate-500">{{ integrationRun.status }}</p>
+          <p class="mt-1 text-xs text-slate-500">
+            {{ integrationStatusLabel(integrationRun.status) }}
+          </p>
           <p
             v-if="integrationRun.status === 'FAILED' && integrationRun.errorMessage"
             class="mt-1 text-xs text-red-600"
@@ -472,7 +507,7 @@ async function approveDraft() {
           class="relative border-l border-slate-200 pl-4"
         >
           <span class="absolute -left-[3.5px] top-1.5 size-1.5 rounded-full bg-slate-400"></span>
-          <p class="text-sm font-medium text-slate-900">{{ caseEvent.eventType }}</p>
+          <p class="text-sm font-medium text-slate-900">{{ caseEventLabel(caseEvent.eventType) }}</p>
           <p class="mt-0.5 text-sm text-slate-600">{{ caseEvent.message }}</p>
         </li>
       </ol>

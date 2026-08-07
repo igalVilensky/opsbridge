@@ -1,6 +1,6 @@
 <script setup lang="ts">
 definePageMeta({
-  title: "Create Case",
+  title: "Fall erstellen",
 });
 
 const form = reactive({

@@ -8,7 +8,7 @@ export async function createCase(input: CreateCaseInput) {
       events: {
         create: {
           eventType: "CASE_CREATED",
-          message: "Case created",
+          message: "Fall erstellt",
         },
       },
     },
