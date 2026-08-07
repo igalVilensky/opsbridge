@@ -20,6 +20,8 @@ const isEnriching = ref(false);
 const isGeneratingAssistance = ref(false);
 const isApproving = ref(false);
 const actionError = ref("");
+const actionSuccess = ref("");
+let actionSuccessTimer: ReturnType<typeof setTimeout> | null = null;
 
 const hasAiAssistance = computed(
   () =>
@@ -36,6 +38,20 @@ const isEnrichmentActionAvailable = computed(
 
 const canGenerateAssistance = computed(
   () => supportCase.value?.status === "READY_FOR_REVIEW",
+);
+
+const hasEnrichmentHistory = computed(
+  () => Boolean(supportCase.value?.enrichmentRuns?.length),
+);
+
+const enrichButtonLabel = computed(() =>
+  hasEnrichmentHistory.value ? "Daten aktualisieren" : "Fall anreichern",
+);
+
+const enrichButtonLoadingLabel = computed(() =>
+  hasEnrichmentHistory.value
+    ? "Daten werden aktualisiert …"
+    : "Wird angereichert …",
 );
 
 const latestEnrichmentRun = computed(() => {
@@ -66,6 +82,62 @@ function integrationDotClass(status: string) {
   return integrationStatusStyles[status] ?? "bg-slate-400";
 }
 
+function clearActionSuccess() {
+  actionSuccess.value = "";
+
+  if (actionSuccessTimer) {
+    clearTimeout(actionSuccessTimer);
+    actionSuccessTimer = null;
+  }
+}
+
+function setActionSuccess(message: string) {
+  clearActionSuccess();
+  actionSuccess.value = message;
+  actionSuccessTimer = setTimeout(() => {
+    actionSuccess.value = "";
+    actionSuccessTimer = null;
+  }, 2500);
+}
+
+onBeforeUnmount(() => {
+  clearActionSuccess();
+});
+
+function getEnrichmentErrorMessage(error: unknown) {
+  const fallbackMessage =
+    "Die Falldaten konnten nicht vollständig angereichert werden.";
+
+  if (!error || typeof error !== "object") {
+    return fallbackMessage;
+  }
+
+  const response = error as {
+    data?: { detail?: unknown; statusMessage?: unknown };
+    statusMessage?: unknown;
+  };
+
+  const detail =
+    typeof response.data?.detail === "string"
+      ? response.data.detail
+      : typeof response.data?.statusMessage === "string"
+        ? response.data.statusMessage
+        : typeof response.statusMessage === "string"
+          ? response.statusMessage
+          : "";
+
+  if (
+    detail &&
+    detail.length <= 120 &&
+    /^[\wäöüÄÖÜß .,'-]+$/.test(detail) &&
+    !detail.toLowerCase().includes("error")
+  ) {
+    return `${fallbackMessage} ${detail}`;
+  }
+
+  return fallbackMessage;
+}
+
 watch(
   () => supportCase.value?.draftResponse,
   (draftResponse) => {
@@ -76,6 +148,7 @@ watch(
 async function enrichSupportCase() {
   isEnriching.value = true;
   actionError.value = "";
+  clearActionSuccess();
 
   try {
     await $fetch(`/api/cases/${route.params.id}/enrich`, {
@@ -83,8 +156,10 @@ async function enrichSupportCase() {
     });
 
     await refresh();
-  } catch {
-    actionError.value = "Die Falldaten konnten nicht angereichert werden.";
+    setActionSuccess("Falldaten wurden aktualisiert.");
+  } catch (error) {
+    await refresh().catch(() => undefined);
+    actionError.value = getEnrichmentErrorMessage(error);
   } finally {
     isEnriching.value = false;
   }
@@ -93,6 +168,7 @@ async function enrichSupportCase() {
 async function generateAssistance() {
   isGeneratingAssistance.value = true;
   actionError.value = "";
+  clearActionSuccess();
 
   try {
     await $fetch(`/api/cases/${route.params.id}/generate-assistance`, {
@@ -110,6 +186,7 @@ async function generateAssistance() {
 async function approveDraft() {
   isApproving.value = true;
   actionError.value = "";
+  clearActionSuccess();
 
   try {
     await $fetch(`/api/cases/${route.params.id}/approve`, {
@@ -159,7 +236,7 @@ async function approveDraft() {
           class="inline-flex items-center justify-center rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
           @click="enrichSupportCase"
         >
-          {{ isEnriching ? "Wird angereichert …" : "Fall anreichern" }}
+          {{ isEnriching ? enrichButtonLoadingLabel : enrichButtonLabel }}
         </button>
 
         <button
@@ -183,6 +260,13 @@ async function approveDraft() {
         class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
       >
         {{ actionError }}
+      </p>
+
+      <p
+        v-else-if="actionSuccess"
+        class="mt-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700"
+      >
+        {{ actionSuccess }}
       </p>
 
       <p v-else-if="supportCase.status === 'NEW'" class="mt-3 text-sm text-slate-500">
