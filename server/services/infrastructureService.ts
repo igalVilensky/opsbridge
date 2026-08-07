@@ -49,7 +49,7 @@ async function resolveDatabaseMetadata(): Promise<InfrastructureNodeRuntime> {
   return {
     status: "healthy" as const,
     metadata: {
-      database: "SQLite",
+      database: "PostgreSQL",
       orm: "Prisma",
       cases: caseCount,
       integrationRuns: integrationRunCount,
@@ -66,7 +66,7 @@ async function resolveDatabaseRuntime(): Promise<InfrastructureNodeRuntime> {
     return {
       status: "degraded" as const,
       metadata: {
-        database: "SQLite",
+        database: "PostgreSQL",
         orm: "Prisma",
       },
     };

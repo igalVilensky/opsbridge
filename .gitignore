@@ -18,7 +18,7 @@ logs
 .env.*
 !.env.example
 
-# Local database files
+# Legacy SQLite artifacts from the old local setup
 dev.db
 prisma/dev.db
 *.db

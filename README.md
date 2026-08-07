@@ -6,7 +6,7 @@ Internal customer-service operations platform for case enrichment, system integr
 ![Vue](https://img.shields.io/badge/Vue-3-42B883?logo=vue.js\&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript\&logoColor=white)
 ![Prisma](https://img.shields.io/badge/Prisma-ORM-2D3748?logo=prisma\&logoColor=white)
-![SQLite](https://img.shields.io/badge/SQLite-003B57?logo=sqlite\&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql\&logoColor=white)
 ![Zod](https://img.shields.io/badge/Zod-Validation-3E67B1)
 
 ## Overview
@@ -50,7 +50,7 @@ The application then:
 
 ```mermaid
 flowchart TD
-    A[Create case] --> B[Save case in SQLite]
+    A[Create case] --> B[Save case in PostgreSQL]
     B --> C[Set status to ENRICHING]
     C --> D[Load CRM data]
     C --> E[Load fulfillment data]
@@ -123,7 +123,7 @@ The application records events such as:
 | Frontend        | Nuxt 3, Vue 3                           |
 | Language        | TypeScript                              |
 | Backend         | Nuxt server routes, Nitro, Node.js      |
-| Database        | SQLite                                  |
+| Database        | PostgreSQL                              |
 | ORM             | Prisma                                  |
 | Validation      | Zod                                     |
 | Package manager | pnpm                                    |
@@ -319,19 +319,29 @@ pnpm install
 Create a `.env` file:
 
 ```env
-DATABASE_URL="file:./dev.db"
+# Local development can point DATABASE_URL at any Postgres database.
+DATABASE_URL="postgresql://USER:PASSWORD@localhost:5432/opsbridge?schema=public"
+
+# Netlify Database exposes the same connection as NETLIFY_DB_URL in production.
+NETLIFY_DB_URL=
+
+AI_PROVIDER=groq
+GROQ_API_KEY=
+GROQ_MODEL=openai/gpt-oss-20b
 ```
+
+If you previously used the SQLite setup, replace the old `file:./dev.db` value with a Postgres connection string.
 
 ### Generate the Prisma Client
 
 ```bash
-pnpm prisma generate
+pnpm db:generate
 ```
 
 ### Apply database migrations
 
 ```bash
-pnpm prisma migrate dev
+pnpm db:migrate
 ```
 
 ### Start the development server
@@ -400,13 +410,13 @@ pnpm dev
 Generate Prisma Client:
 
 ```bash
-pnpm prisma generate
+pnpm db:generate
 ```
 
 Create a migration:
 
 ```bash
-pnpm prisma migrate dev --name migration-name
+pnpm exec prisma migrate dev --name migration-name
 ```
 
 Open Prisma Studio:
@@ -420,6 +430,43 @@ Build the application:
 ```bash
 pnpm build
 ```
+
+Seed demo data:
+
+```bash
+pnpm db:seed
+```
+
+## Netlify deployment
+
+### Required environment variables
+
+* `DATABASE_URL` or `NETLIFY_DB_URL`
+* `GROQ_API_KEY`
+* `GROQ_MODEL=openai/gpt-oss-20b`
+* `AI_PROVIDER=groq`
+
+### Database setup
+
+Production uses Netlify Database as the PostgreSQL database. Netlify exposes the connection string as `NETLIFY_DB_URL`; OpsBridge accepts either `DATABASE_URL` or `NETLIFY_DB_URL` on the server side.
+
+### Build command
+
+Use this Netlify build command:
+
+```bash
+pnpm db:deploy && pnpm build
+```
+
+`pnpm db:deploy` maps to `prisma migrate deploy`, and `pnpm build` runs `prisma generate` before `nuxt build`.
+
+### First deployment
+
+1. Create or connect the Netlify Database.
+2. Set the environment variables above.
+3. Run `pnpm db:deploy` against the production database.
+4. Deploy with `pnpm db:deploy && pnpm build`.
+5. Optionally seed demo content with `pnpm db:seed` after the schema is ready.
 
 ## Security boundaries
 
@@ -438,7 +485,7 @@ Currently implemented:
 * case creation
 * case list
 * case detail page
-* SQLite persistence
+* PostgreSQL persistence
 * Zod validation
 * CRM enrichment
 * fulfillment enrichment
