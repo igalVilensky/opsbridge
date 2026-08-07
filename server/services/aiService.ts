@@ -1,37 +1,22 @@
-type AiAssistanceInput = {
-  originalMessage: string;
-  customerName?: string;
-  orderStatus?: string;
-  shippingStatus?: string;
-  callNote?: string;
-};
-
-export type AiAssistanceResult = {
-  summary: string;
-  suggestedAction: string;
-  draftResponse: string;
-};
+import { generateGroqAssistance } from "../ai/providers/groqProvider";
+import { generateMockAssistance } from "../ai/providers/mockProvider";
+import type { AiAssistanceResult, AiCaseContext } from "../ai/types";
 
 export async function generateAiAssistance(
-  input: AiAssistanceInput,
+  context: AiCaseContext,
 ): Promise<AiAssistanceResult> {
-  const customerName = input.customerName ?? "Kundin oder Kunde";
+  const providerName = process.env.AI_PROVIDER?.trim().toLowerCase() || "groq";
 
-  return {
-    summary: `${customerName} contacted customer service regarding an order. The current shipping status is ${input.shippingStatus ?? "unknown"}.`,
-    suggestedAction:
-      input.shippingStatus === "delayed"
-        ? "Contact the shipping provider, verify the expected delivery date, and update the customer."
-        : "Review the available order information and contact the customer with the next steps.",
-    draftResponse: `Guten Tag ${customerName},
+  if (providerName === "mock") {
+    return generateMockAssistance(context);
+  }
 
-vielen Dank für Ihre Nachricht. Wir prüfen aktuell den Status Ihrer Bestellung.
+  if (providerName !== "groq") {
+    throw createError({
+      statusCode: 500,
+      statusMessage: "Unsupported AI provider configured",
+    });
+  }
 
-Der aktuelle Versandstatus lautet: ${input.shippingStatus ?? "nicht verfügbar"}.
-
-Wir melden uns bei Ihnen, sobald uns weitere Informationen vorliegen.
-
-Mit freundlichen Grüßen
-Ihr Kundenservice`,
-  };
+  return generateGroqAssistance(context);
 }

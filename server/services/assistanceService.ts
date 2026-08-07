@@ -5,6 +5,47 @@ import {
   updateCaseStatus,
 } from "../repositories/caseRepository";
 import { createCaseEvent } from "../repositories/eventRepository";
+import type { AiCaseContext } from "../ai/types";
+
+function buildAiCaseContext(
+  supportCase: NonNullable<Awaited<ReturnType<typeof findCaseById>>>,
+): AiCaseContext {
+  return {
+    subject: supportCase.subject,
+    originalMessage: supportCase.originalMessage,
+    customerEmail: supportCase.customerEmail,
+    customerSnapshot: supportCase.customerSnapshot
+      ? {
+          name: supportCase.customerSnapshot.name,
+          email: supportCase.customerSnapshot.email,
+          phone: supportCase.customerSnapshot.phone,
+          company: supportCase.customerSnapshot.company,
+          status: supportCase.customerSnapshot.status,
+        }
+      : null,
+    orderId: supportCase.orderId,
+    orderSnapshot: supportCase.orderSnapshot
+      ? {
+          externalOrderId: supportCase.orderSnapshot.externalOrderId,
+          orderStatus: supportCase.orderSnapshot.orderStatus,
+          shippingStatus: supportCase.orderSnapshot.shippingStatus,
+          shippingProvider: supportCase.orderSnapshot.shippingProvider,
+          trackingNumber: supportCase.orderSnapshot.trackingNumber,
+        }
+      : null,
+    callSnapshot: supportCase.callSnapshot
+      ? {
+          externalCallId: supportCase.callSnapshot.externalCallId,
+          calledAt: supportCase.callSnapshot.calledAt.toISOString(),
+          durationSeconds: supportCase.callSnapshot.durationSeconds,
+          callStatus: supportCase.callSnapshot.callStatus,
+          note: supportCase.callSnapshot.note,
+        }
+      : null,
+    department: supportCase.department,
+    priority: supportCase.priority,
+  };
+}
 
 export async function generateCaseAssistance(caseId: string) {
   const supportCase = await findCaseById(caseId);
@@ -16,13 +57,7 @@ export async function generateCaseAssistance(caseId: string) {
     });
   }
 
-  const assistance = await generateAiAssistance({
-    originalMessage: supportCase.originalMessage,
-    customerName: supportCase.customerSnapshot?.name,
-    orderStatus: supportCase.orderSnapshot?.orderStatus,
-    shippingStatus: supportCase.orderSnapshot?.shippingStatus,
-    callNote: supportCase.callSnapshot?.note ?? undefined,
-  });
+  const assistance = await generateAiAssistance(buildAiCaseContext(supportCase));
 
   await saveAiAssistance(caseId, assistance);
 
