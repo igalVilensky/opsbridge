@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { departmentLabels } from "~/utils/labels";
+import PriorityBadge from "~/components/ui/PriorityBadge.vue";
+import StatusBadge from "~/components/ui/StatusBadge.vue";
 
 definePageMeta({
   title: "Cases",
