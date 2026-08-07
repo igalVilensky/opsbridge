@@ -455,17 +455,17 @@ Production uses Netlify Database as the PostgreSQL database. Netlify exposes the
 Use this Netlify build command:
 
 ```bash
-pnpm db:deploy && pnpm build
+pnpm build
 ```
 
-`pnpm db:deploy` maps to `prisma migrate deploy`, and `pnpm build` runs `prisma generate` before `nuxt build`.
+`pnpm build` runs `prisma generate` before `nuxt build`.
 
 ### First deployment
 
-1. Create or connect the Netlify Database.
-2. Set the environment variables above.
-3. Run `pnpm db:deploy` against the production database.
-4. Deploy with `pnpm db:deploy && pnpm build`.
+1. Deploy the project.
+2. Create or connect the Netlify Database.
+3. Add `DATABASE_URL` or `NETLIFY_DB_URL`.
+4. Run `pnpm db:deploy` against the production database.
 5. Optionally seed demo content with `pnpm db:seed` after the schema is ready.
 
 ## Security boundaries
