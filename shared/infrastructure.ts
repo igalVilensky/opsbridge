@@ -1,17 +1,22 @@
 export type InfrastructureNodeType = "application" | "integration" | "database" | "ai";
 export type InfrastructureNodeStatus = "healthy" | "degraded" | "unknown";
+export type InfrastructureMetadataValue = string | number | null;
 
-export type InfrastructureNode = {
+export type InfrastructureNodeBase = {
   id: string;
   name: string;
   type: InfrastructureNodeType;
-  status: InfrastructureNodeStatus;
   description: string;
   position: {
     x: number;
     y: number;
     z: number;
   };
+};
+
+export type InfrastructureNode = InfrastructureNodeBase & {
+  status: InfrastructureNodeStatus;
+  metadata?: Record<string, InfrastructureMetadataValue>;
 };
 
 export type InfrastructureConnection = {
@@ -24,12 +29,11 @@ export type InfrastructureResponse = {
   connections: InfrastructureConnection[];
 };
 
-export const infrastructureNodes: InfrastructureNode[] = [
+export const infrastructureNodes: InfrastructureNodeBase[] = [
   {
     id: "opsbridge-api",
     name: "OpsBridge API",
     type: "application",
-    status: "healthy",
     description: "Main orchestration service coordinating cases, approvals, and system updates.",
     position: { x: 0, y: 0, z: 0 },
   },
@@ -37,7 +41,6 @@ export const infrastructureNodes: InfrastructureNode[] = [
     id: "crm",
     name: "CRM",
     type: "integration",
-    status: "healthy",
     description: "Source of customer and case context used by OpsBridge workflows.",
     position: { x: -4.5, y: 1, z: -1 },
   },
@@ -45,7 +48,6 @@ export const infrastructureNodes: InfrastructureNode[] = [
     id: "fulfillment",
     name: "Fulfillment",
     type: "integration",
-    status: "healthy",
     description: "Upstream fulfillment system for order lookups and operational updates.",
     position: { x: 4.2, y: 0.5, z: -0.5 },
   },
@@ -53,7 +55,6 @@ export const infrastructureNodes: InfrastructureNode[] = [
     id: "call-system",
     name: "Call System",
     type: "integration",
-    status: "degraded",
     description: "Telephony integration used for call snapshots and customer support events.",
     position: { x: 0.5, y: 0.2, z: 4.3 },
   },
@@ -61,7 +62,6 @@ export const infrastructureNodes: InfrastructureNode[] = [
     id: "database",
     name: "Database",
     type: "database",
-    status: "healthy",
     description: "Persistent store for cases, snapshots, and workflow state.",
     position: { x: 0, y: -2.8, z: 0.5 },
   },
@@ -69,7 +69,6 @@ export const infrastructureNodes: InfrastructureNode[] = [
     id: "ai-provider",
     name: "AI Provider",
     type: "ai",
-    status: "unknown",
     description: "External LLM provider used for assistance generation and enrichment support.",
     position: { x: 3.6, y: 2.2, z: 3.1 },
   },

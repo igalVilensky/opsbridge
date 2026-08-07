@@ -18,6 +18,39 @@ const emit = defineEmits<{
 
 const containerRef = ref<HTMLDivElement | null>(null);
 
+type NodeVisual = {
+  id: string;
+  mesh: THREE.Mesh;
+  glow: THREE.Sprite;
+  label: THREE.Sprite;
+  basePosition: THREE.Vector3;
+  baseColor: THREE.Color;
+  phase: number;
+  status: InfrastructureNode["status"];
+};
+
+type ConnectionVisual = {
+  from: string;
+  to: string;
+  line: THREE.Line;
+  material: THREE.LineBasicMaterial;
+  targetStatus: InfrastructureNode["status"];
+  baseOpacity: number;
+  baseColor: THREE.Color;
+};
+
+type FlowParticle = {
+  from: THREE.Vector3;
+  to: THREE.Vector3;
+  sourceId: string;
+  targetId: string;
+  sprite: THREE.Sprite;
+  progress: number;
+  baseSpeed: number;
+  targetStatus: InfrastructureNode["status"];
+  baseOpacity: number;
+};
+
 let scene: THREE.Scene | null = null;
 let camera: THREE.PerspectiveCamera | null = null;
 let renderer: THREE.WebGLRenderer | null = null;
@@ -30,6 +63,7 @@ let isMounted = false;
 let isInitialized = false;
 let pointerDownHandler: ((event: PointerEvent) => void) | null = null;
 let pointerMoveHandler: ((event: PointerEvent) => void) | null = null;
+let pointerLeaveHandler: ((event: PointerEvent) => void) | null = null;
 let connectionGroup: THREE.Group | null = null;
 let flowGroup: THREE.Group | null = null;
 let nodeGroup: THREE.Group | null = null;
@@ -37,38 +71,26 @@ let starGroup: THREE.Points | null = null;
 let gridHelper: THREE.GridHelper | null = null;
 let selectionRing: THREE.Mesh | null = null;
 let glowTexture: THREE.Texture | null = null;
+let backgroundTexture: THREE.Texture | null = null;
+let autoRotateTimeoutId: number | null = null;
 const clock = new THREE.Clock();
 
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 const nodeMeshes: THREE.Mesh[] = [];
 const nodeMap = new Map<string, InfrastructureNode>();
-
-type NodeVisual = {
-  id: string;
-  mesh: THREE.Mesh;
-  glow: THREE.Sprite;
-  label: THREE.Sprite;
-  basePosition: THREE.Vector3;
-  phase: number;
-  status: InfrastructureNode["status"];
-};
-
-type FlowParticle = {
-  from: THREE.Vector3;
-  to: THREE.Vector3;
-  sprite: THREE.Sprite;
-  progress: number;
-  speed: number;
-};
-
+const connectedNodeIds = new Map<string, Set<string>>();
 const nodeVisuals: NodeVisual[] = [];
+const connectionVisuals: ConnectionVisual[] = [];
 const flowParticles: FlowParticle[] = [];
 let hoveredMeshId: string | null = null;
 let lastInteractionAt = 0;
 
+const highlightTint = new THREE.Color(0xe2f0ff);
+const connectionTint = new THREE.Color(0x334155);
+
 function clearGroup(group: THREE.Group) {
-  group.traverse((object: any) => {
+  group.traverse((object: THREE.Object3D) => {
     disposeRenderable(object);
   });
   group.clear();
@@ -78,6 +100,7 @@ function disposeRenderable(object: THREE.Object3D) {
   const renderable = object as {
     geometry?: THREE.BufferGeometry;
     material?: THREE.Material | THREE.Material[];
+    userData?: Record<string, unknown>;
   };
 
   renderable.geometry?.dispose();
@@ -85,24 +108,34 @@ function disposeRenderable(object: THREE.Object3D) {
   const material = renderable.material;
   if (!material) return;
 
+  const disposeTexture = renderable.userData?.disposeTexture === true;
+
+  const disposeMaterial = (entry: THREE.Material) => {
+    const texturedMaterial = entry as THREE.SpriteMaterial & { map?: THREE.Texture | null };
+    if (disposeTexture && texturedMaterial.map) {
+      texturedMaterial.map.dispose();
+    }
+    entry.dispose();
+  };
+
   if (Array.isArray(material)) {
-    for (const entry of material) entry.dispose();
+    for (const entry of material) disposeMaterial(entry);
     return;
   }
 
-  material.dispose();
+  disposeMaterial(material);
 }
 
 function statusColor(status: InfrastructureNode["status"]) {
   if (status === "healthy") return 0x34d399;
-  if (status === "degraded") return 0xfbbf24;
+  if (status === "degraded") return 0xf59e0b;
   return 0x64748b;
 }
 
 function statusPulseSpeed(status: InfrastructureNode["status"]) {
-  if (status === "healthy") return 1.1;
-  if (status === "degraded") return 3.4;
-  return 0.5;
+  if (status === "healthy") return 0.95;
+  if (status === "degraded") return 2.4;
+  return 0.45;
 }
 
 function typeColor(type: InfrastructureNode["type"]) {
@@ -114,15 +147,15 @@ function typeColor(type: InfrastructureNode["type"]) {
 
 function createNodeGeometry(type: InfrastructureNode["type"]) {
   if (type === "integration") {
-    return new THREE.CylinderGeometry(0.55, 0.55, 1.1, 20);
+    return new THREE.CylinderGeometry(0.53, 0.53, 1.08, 20);
   }
   if (type === "database") {
-    return new THREE.SphereGeometry(0.6, 32, 24);
+    return new THREE.SphereGeometry(0.61, 32, 24);
   }
   if (type === "ai") {
     return new THREE.IcosahedronGeometry(0.68, 1);
   }
-  return new THREE.BoxGeometry(1.25, 0.8, 0.85, 2, 2, 2);
+  return new THREE.BoxGeometry(1.2, 0.78, 0.82, 2, 2, 2);
 }
 
 function getGlowTexture() {
@@ -134,22 +167,25 @@ function getGlowTexture() {
   canvas.height = size;
   const ctx = canvas.getContext("2d")!;
   const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
-  gradient.addColorStop(0, "rgba(255,255,255,1)");
-  gradient.addColorStop(0.35, "rgba(255,255,255,0.45)");
+  gradient.addColorStop(0, "rgba(255,255,255,0.98)");
+  gradient.addColorStop(0.25, "rgba(255,255,255,0.42)");
+  gradient.addColorStop(0.55, "rgba(255,255,255,0.12)");
   gradient.addColorStop(1, "rgba(255,255,255,0)");
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, size, size);
 
   glowTexture = new THREE.CanvasTexture(canvas);
+  glowTexture.colorSpace = THREE.SRGBColorSpace;
   return glowTexture;
 }
 
-function createGlowSprite(colorHex: number, scale: number) {
+function createGlowSprite(colorHex: number, scale: number, opacity = 0.2) {
   const material = new THREE.SpriteMaterial({
     map: getGlowTexture(),
     color: colorHex,
     transparent: true,
     depthWrite: false,
+    opacity,
     blending: THREE.AdditiveBlending,
   });
   const sprite = new THREE.Sprite(material);
@@ -159,15 +195,15 @@ function createGlowSprite(colorHex: number, scale: number) {
 
 function createLabelSprite(text: string) {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  const paddingX = 18;
-  const fontSize = 26;
+  const paddingX = 16;
+  const fontSize = 24;
   const measureCanvas = document.createElement("canvas");
   const measureCtx = measureCanvas.getContext("2d")!;
   measureCtx.font = `600 ${fontSize}px ui-sans-serif, system-ui, sans-serif`;
   const textWidth = measureCtx.measureText(text).width;
 
   const width = Math.ceil(textWidth + paddingX * 2);
-  const height = 48;
+  const height = 44;
 
   const canvas = document.createElement("canvas");
   canvas.width = width * dpr;
@@ -175,20 +211,21 @@ function createLabelSprite(text: string) {
   const ctx = canvas.getContext("2d")!;
   ctx.scale(dpr, dpr);
 
-  ctx.fillStyle = "rgba(6, 12, 24, 0.72)";
-  ctx.strokeStyle = "rgba(148, 163, 184, 0.35)";
+  ctx.fillStyle = "rgba(6, 12, 24, 0.64)";
+  ctx.strokeStyle = "rgba(148, 163, 184, 0.28)";
   ctx.lineWidth = 1;
   roundRect(ctx, 0.5, 0.5, width - 1, height - 1, 10);
   ctx.fill();
   ctx.stroke();
 
-  ctx.fillStyle = "rgba(226, 232, 240, 0.95)";
+  ctx.fillStyle = "rgba(226, 232, 240, 0.96)";
   ctx.font = `600 ${fontSize}px ui-sans-serif, system-ui, sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(text, width / 2, height / 2 + 1);
 
   const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
   texture.needsUpdate = true;
 
   const material = new THREE.SpriteMaterial({
@@ -197,8 +234,9 @@ function createLabelSprite(text: string) {
     depthWrite: false,
   });
   const sprite = new THREE.Sprite(material);
+  sprite.userData.disposeTexture = true;
   const aspect = width / height;
-  const spriteHeight = 0.62;
+  const spriteHeight = 0.56;
   sprite.scale.set(spriteHeight * aspect, spriteHeight, 1);
   return sprite;
 }
@@ -219,25 +257,28 @@ function createBackgroundTexture() {
   canvas.height = 256;
   const ctx = canvas.getContext("2d")!;
   const gradient = ctx.createLinearGradient(0, 0, 0, 256);
-  gradient.addColorStop(0, "#050a16");
-  gradient.addColorStop(0.55, "#0a1526");
-  gradient.addColorStop(1, "#0d1c30");
+  gradient.addColorStop(0, "#040812");
+  gradient.addColorStop(0.55, "#08111d");
+  gradient.addColorStop(1, "#0c1727");
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, 4, 256);
-  return new THREE.CanvasTexture(canvas);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
 }
 
 function createStarField() {
-  const count = 260;
+  const count = 140;
   const positions = new Float32Array(count * 3);
 
   for (let i = 0; i < count; i += 1) {
-    const radius = 16 + Math.random() * 14;
+    const radius = 15 + Math.random() * 12;
     const theta = Math.random() * Math.PI * 2;
     const phi = Math.acos(Math.random() * 2 - 1);
 
     positions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
-    positions[i * 3 + 1] = Math.abs(radius * Math.cos(phi)) * 0.6 + 1;
+    positions[i * 3 + 1] = Math.abs(radius * Math.cos(phi)) * 0.55 + 0.8;
     positions[i * 3 + 2] = radius * Math.sin(phi) * Math.sin(theta);
   }
 
@@ -245,17 +286,53 @@ function createStarField() {
   geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
 
   const material = new THREE.PointsMaterial({
-    size: 0.06,
+    size: 0.045,
     map: getGlowTexture(),
-    color: 0x9db6da,
+    color: 0x8ca6c4,
     transparent: true,
-    opacity: 0.5,
+    opacity: 0.23,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
     sizeAttenuation: true,
   });
 
   return new THREE.Points(geometry, material);
+}
+
+function getBaseGlowScale(status: InfrastructureNode["status"]) {
+  if (status === "healthy") return 1.62;
+  if (status === "degraded") return 1.76;
+  return 1.46;
+}
+
+function getBaseGlowOpacity(status: InfrastructureNode["status"]) {
+  if (status === "healthy") return 0.16;
+  if (status === "degraded") return 0.22;
+  return 0.1;
+}
+
+function getFlowSpeed(status: InfrastructureNode["status"], direction: "outbound" | "inbound") {
+  const base =
+    status === "healthy"
+      ? 0.22
+      : status === "degraded"
+        ? 0.15
+        : 0.08;
+
+  return direction === "outbound" ? base : base * 0.9;
+}
+
+function getFlowOpacity(status: InfrastructureNode["status"]) {
+  if (status === "healthy") return 0.42;
+  if (status === "degraded") return 0.3;
+  return 0.16;
+}
+
+function registerConnection(sourceId: string, targetId: string) {
+  if (!connectedNodeIds.has(sourceId)) connectedNodeIds.set(sourceId, new Set());
+  if (!connectedNodeIds.has(targetId)) connectedNodeIds.set(targetId, new Set());
+  connectedNodeIds.get(sourceId)?.add(targetId);
+  connectedNodeIds.get(targetId)?.add(sourceId);
 }
 
 function rebuildSceneGraph() {
@@ -268,19 +345,22 @@ function rebuildSceneGraph() {
   clearGroup(flowGroup);
   nodeMeshes.length = 0;
   nodeMap.clear();
+  connectedNodeIds.clear();
   nodeVisuals.length = 0;
+  connectionVisuals.length = 0;
   flowParticles.length = 0;
 
   for (const node of props.nodes) {
     nodeMap.set(node.id, node);
 
     const geometry = createNodeGeometry(node.type);
+    const baseColor = new THREE.Color(typeColor(node.type));
     const material = new THREE.MeshStandardMaterial({
-      color: typeColor(node.type),
-      emissive: statusColor(node.status),
-      emissiveIntensity: node.status === "healthy" ? 0.35 : node.status === "degraded" ? 0.5 : 0.12,
-      roughness: 0.35,
-      metalness: 0.25,
+      color: baseColor.clone(),
+      emissive: new THREE.Color(statusColor(node.status)),
+      emissiveIntensity: node.status === "healthy" ? 0.18 : node.status === "degraded" ? 0.34 : 0.08,
+      roughness: 0.42,
+      metalness: 0.12,
     });
 
     const mesh = new THREE.Mesh(geometry, material);
@@ -290,12 +370,12 @@ function rebuildSceneGraph() {
     nodeGroup.add(mesh);
     nodeMeshes.push(mesh);
 
-    const glow = createGlowSprite(statusColor(node.status), 2.4);
+    const glow = createGlowSprite(statusColor(node.status), getBaseGlowScale(node.status), getBaseGlowOpacity(node.status));
     glow.position.copy(basePosition);
     nodeGroup.add(glow);
 
     const label = createLabelSprite(node.name);
-    label.position.set(basePosition.x, basePosition.y + 1.15, basePosition.z);
+    label.position.set(basePosition.x, basePosition.y + 1.13, basePosition.z);
     nodeGroup.add(label);
 
     nodeVisuals.push({
@@ -304,6 +384,7 @@ function rebuildSceneGraph() {
       glow,
       label,
       basePosition,
+      baseColor,
       phase: Math.random() * Math.PI * 2,
       status: node.status,
     });
@@ -314,42 +395,69 @@ function rebuildSceneGraph() {
     const toNode = nodeMap.get(connection.to);
     if (!fromNode || !toNode) continue;
 
+    registerConnection(fromNode.id, toNode.id);
+
     const start = new THREE.Vector3(fromNode.position.x, fromNode.position.y, fromNode.position.z);
     const end = new THREE.Vector3(toNode.position.x, toNode.position.y, toNode.position.z);
     const midpoint = start.clone().lerp(end, 0.5);
-    midpoint.y += 1.1;
+    midpoint.y += 1.08;
 
     const curve = new THREE.QuadraticBezierCurve3(start, midpoint, end);
-    const points = curve.getPoints(32);
+    const points = curve.getPoints(28);
     const geometry = new THREE.BufferGeometry().setFromPoints(points);
+    const baseColor = connectionTint.clone();
     const material = new THREE.LineBasicMaterial({
-      color: 0x64748b,
+      color: baseColor.clone(),
       transparent: true,
-      opacity: 0.35,
+      opacity: 0.26,
     });
-    connectionGroup.add(new THREE.Line(geometry, material));
+    const line = new THREE.Line(geometry, material);
+    connectionGroup.add(line);
+    connectionVisuals.push({
+      from: fromNode.id,
+      to: toNode.id,
+      line,
+      material,
+      targetStatus: toNode.status,
+      baseOpacity: 0.26,
+      baseColor,
+    });
 
-    const accent = typeColor(toNode.type);
-
-    const outboundSprite = createGlowSprite(accent, 0.5);
+    const accentColor = new THREE.Color(statusColor(toNode.status));
+    const outboundSprite = createGlowSprite(
+      accentColor.getHex(),
+      0.4,
+      getFlowOpacity(toNode.status),
+    );
     flowGroup.add(outboundSprite);
     flowParticles.push({
       from: start,
       to: end,
+      sourceId: fromNode.id,
+      targetId: toNode.id,
       sprite: outboundSprite,
       progress: Math.random(),
-      speed: 0.22,
+      baseSpeed: getFlowSpeed(toNode.status, "outbound"),
+      targetStatus: toNode.status,
+      baseOpacity: getFlowOpacity(toNode.status),
     });
 
-    const inboundSprite = createGlowSprite(accent, 0.28);
-    (inboundSprite.material as THREE.SpriteMaterial).opacity = 0.55;
+    const inboundSprite = createGlowSprite(
+      accentColor.getHex(),
+      0.25,
+      getFlowOpacity(toNode.status) * 0.8,
+    );
     flowGroup.add(inboundSprite);
     flowParticles.push({
       from: end,
       to: start,
+      sourceId: toNode.id,
+      targetId: fromNode.id,
       sprite: inboundSprite,
       progress: Math.random(),
-      speed: 0.3,
+      baseSpeed: getFlowSpeed(toNode.status, "inbound"),
+      targetStatus: toNode.status,
+      baseOpacity: getFlowOpacity(toNode.status) * 0.8,
     });
   }
 
@@ -408,6 +516,11 @@ function handlePointerMove(event: PointerEvent) {
   }
 }
 
+function handlePointerLeave() {
+  hoveredMeshId = null;
+  updateHoverCursor(null);
+}
+
 function handlePointerDown(event: PointerEvent) {
   if (!camera || !renderer) return;
 
@@ -428,6 +541,42 @@ function handlePointerDown(event: PointerEvent) {
   }
 }
 
+function getConnectionHighlight(selectedId: string | null, connection: ConnectionVisual) {
+  if (!selectedId) {
+    return {
+      isDirect: false,
+      opacity: connection.baseOpacity,
+      color: connection.baseColor,
+    };
+  }
+
+  const isDirect = connection.from === selectedId || connection.to === selectedId;
+  return {
+    isDirect,
+    opacity: isDirect ? 0.72 : 0.12,
+    color: isDirect ? new THREE.Color(statusColor(connection.targetStatus)) : connection.baseColor,
+  };
+}
+
+function getNodeRelationship(selectedId: string | null, nodeId: string) {
+  if (!selectedId) {
+    return {
+      isSelected: false,
+      isDirect: false,
+      isDimmed: false,
+    };
+  }
+
+  const isSelected = selectedId === nodeId;
+  const isDirect = connectedNodeIds.get(selectedId)?.has(nodeId) ?? false;
+
+  return {
+    isSelected,
+    isDirect,
+    isDimmed: !isSelected && !isDirect,
+  };
+}
+
 function animate() {
   if (!renderer || !scene || !camera) return;
 
@@ -435,53 +584,115 @@ function animate() {
 
   const elapsed = clock.getElapsedTime();
   const delta = clock.getDelta();
+  const selectedId = props.selectedNodeId ?? null;
+  const relationshipDarken = new THREE.Color(0x0f172a);
 
   for (const visual of nodeVisuals) {
-    const bob = Math.sin(elapsed * 0.8 + visual.phase) * 0.08;
+    const bob = Math.sin(elapsed * 0.78 + visual.phase) * 0.07;
     visual.mesh.position.y = visual.basePosition.y + bob;
     visual.glow.position.y = visual.mesh.position.y;
-    visual.label.position.y = visual.basePosition.y + 1.15 + bob * 0.5;
-    visual.mesh.rotation.y += delta * 0.15;
+    visual.label.position.y = visual.basePosition.y + 1.13 + bob * 0.45;
+    visual.mesh.rotation.y += delta * 0.13;
 
-    const pulseSpeed = statusPulseSpeed(visual.status);
-    const pulse = 0.75 + Math.sin(elapsed * pulseSpeed + visual.phase) * (visual.status === "unknown" ? 0.08 : 0.25);
-    visual.glow.scale.setScalar(2.4 * pulse);
-
+    const relationship = getNodeRelationship(selectedId, visual.id);
     const isHovered = hoveredMeshId === visual.id;
     const material = visual.mesh.material as THREE.MeshStandardMaterial;
-    const baseIntensity = visual.status === "healthy" ? 0.35 : visual.status === "degraded" ? 0.5 : 0.12;
-    material.emissiveIntensity = isHovered ? baseIntensity + 0.4 : baseIntensity;
-    visual.mesh.scale.setScalar(isHovered ? 1.08 : 1);
+    const baseEmissive =
+      visual.status === "healthy" ? 0.18 : visual.status === "degraded" ? 0.34 : 0.08;
+
+    material.color.copy(visual.baseColor);
+    if (relationship.isDimmed) {
+      material.color.lerp(relationshipDarken, 0.34);
+    } else if (relationship.isDirect) {
+      material.color.lerp(highlightTint, relationship.isSelected ? 0.1 : 0.06);
+    }
+
+    const hoverBoost = isHovered ? 0.08 : 0;
+    const directBoost = relationship.isDirect ? 0.05 : 0;
+    const selectionBoost = relationship.isSelected ? 0.08 : 0;
+    const dimPenalty = relationship.isDimmed ? 0.06 : 0;
+    material.emissiveIntensity = Math.max(
+      0.04,
+      baseEmissive + hoverBoost + directBoost + selectionBoost - dimPenalty,
+    );
+    visual.mesh.scale.setScalar(
+      relationship.isSelected
+        ? 1.08
+        : isHovered
+          ? 1.05
+          : relationship.isDimmed
+            ? 0.97
+            : 1,
+    );
+
+    const glowMaterial = visual.glow.material as THREE.SpriteMaterial;
+    const pulseSpeed = statusPulseSpeed(visual.status);
+    const pulse =
+      0.8 + Math.sin(elapsed * pulseSpeed + visual.phase) * (visual.status === "unknown" ? 0.04 : 0.14);
+    const dimScale = relationship.isDimmed ? 0.9 : 1;
+    const focusScale = relationship.isSelected ? 1.06 : relationship.isDirect ? 1.02 : 1;
+    visual.glow.scale.setScalar(getBaseGlowScale(visual.status) * pulse * dimScale * focusScale);
+    glowMaterial.opacity =
+      getBaseGlowOpacity(visual.status) * (relationship.isDimmed ? 0.72 : 1) * (isHovered ? 1.18 : 1);
+
+    const labelMaterial = visual.label.material as THREE.SpriteMaterial;
+    labelMaterial.opacity = relationship.isDimmed ? 0.72 : relationship.isDirect || relationship.isSelected ? 1 : 0.9;
+  }
+
+  for (const connection of connectionVisuals) {
+    const highlight = getConnectionHighlight(selectedId, connection);
+    connection.material.color.copy(highlight.color);
+    connection.material.opacity = highlight.opacity;
   }
 
   for (const particle of flowParticles) {
-    particle.progress += particle.speed * delta;
+    const selected = selectedId
+      ? particle.sourceId === selectedId || particle.targetId === selectedId
+      : true;
+    const directBoost = selected ? 1 : 0.55;
+    const statusFactor =
+      particle.targetStatus === "healthy"
+        ? 1
+        : particle.targetStatus === "degraded"
+          ? 0.72
+          : 0.45;
+
+    particle.progress += particle.baseSpeed * statusFactor * delta * directBoost;
     if (particle.progress > 1) particle.progress -= 1;
 
     const eased = particle.progress;
     particle.sprite.position.lerpVectors(particle.from, particle.to, eased);
-    particle.sprite.position.y += Math.sin(eased * Math.PI) * 1.1;
+    particle.sprite.position.y += Math.sin(eased * Math.PI) * 1.06;
 
     const material = particle.sprite.material as THREE.SpriteMaterial;
+    material.color.setHex(
+      particle.targetStatus === "healthy"
+        ? 0x7dd3fc
+        : particle.targetStatus === "degraded"
+          ? 0xfbbf24
+          : 0x94a3b8,
+    );
     const fade = Math.sin(eased * Math.PI);
-    material.opacity = Math.max(0.15, fade);
+    material.opacity = Math.max(
+      0.06,
+      particle.baseOpacity * statusFactor * fade * (selected ? 1 : 0.88),
+    );
   }
 
   if (selectionRing && selectionRing.visible) {
-    const selectedId = props.selectedNodeId;
     const visual = selectedId ? nodeVisuals.find((entry) => entry.id === selectedId) : null;
     if (visual) {
       selectionRing.position.copy(visual.mesh.position);
       selectionRing.rotation.z += delta * 0.6;
-      const scalePulse = 1 + Math.sin(elapsed * 2.2) * 0.06;
+      const scalePulse = 1 + Math.sin(elapsed * 2.1) * 0.05;
       selectionRing.scale.setScalar(scalePulse);
     }
   }
 
   if (starGroup) {
     const material = starGroup.material as THREE.PointsMaterial;
-    material.opacity = 0.4 + Math.sin(elapsed * 0.6) * 0.1;
-    starGroup.rotation.y += delta * 0.01;
+    material.opacity = 0.18 + Math.sin(elapsed * 0.55) * 0.05;
+    starGroup.rotation.y += delta * 0.008;
   }
 
   controls?.update();
@@ -503,35 +714,41 @@ async function initializeScene() {
     import("three/examples/jsm/postprocessing/UnrealBloomPass.js"),
   ]);
 
-  scene = new THREE.Scene();
-  scene.background = createBackgroundTexture();
-  scene.fog = new THREE.Fog(0x0a1526, 14, 32);
+  if (!isMounted || !containerRef.value || isInitialized) return;
 
-  camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
-  camera.position.set(0, 6.5, 15);
+  scene = new THREE.Scene();
+  backgroundTexture = createBackgroundTexture();
+  scene.background = backgroundTexture;
+  scene.fog = new THREE.Fog(0x08111d, 15, 32);
+
+  camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
+  camera.position.set(0, 6.3, 15.2);
 
   renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-  renderer.setClearColor(0x050a16, 1);
-  renderer.domElement.className = "block h-full w-full";
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
+  renderer.setClearColor(0x040812, 1);
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 0.82;
+  renderer.domElement.className = "block h-full w-full touch-none";
   renderer.domElement.style.cursor = "grab";
   containerRef.value.appendChild(renderer.domElement);
 
-  const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
-  const hemisphereLight = new THREE.HemisphereLight(0x6ea8ff, 0x0a0f1c, 0.7);
-  const keyLight = new THREE.DirectionalLight(0xffffff, 1.15);
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.22);
+  const hemisphereLight = new THREE.HemisphereLight(0x7fb7ff, 0x08101c, 0.42);
+  const keyLight = new THREE.DirectionalLight(0xffffff, 0.82);
   keyLight.position.set(8, 12, 10);
-  const rimLight = new THREE.PointLight(0x38bdf8, 1.4, 20);
+  const rimLight = new THREE.PointLight(0x60a5fa, 0.65, 20);
   rimLight.position.set(-8, 4, -6);
-  const fillLight = new THREE.PointLight(0xf97316, 0.5, 18);
+  const fillLight = new THREE.PointLight(0xf97316, 0.2, 18);
   fillLight.position.set(6, -2, 8);
 
   scene.add(ambientLight, hemisphereLight, keyLight, rimLight, fillLight);
 
-  gridHelper = new THREE.GridHelper(22, 22, 0x1e3a5f, 0x0f1e33);
+  gridHelper = new THREE.GridHelper(22, 22, 0x16304d, 0x0d1c2e);
   gridHelper.position.y = -4;
   (gridHelper.material as THREE.Material).transparent = true;
-  (gridHelper.material as THREE.Material).opacity = 0.5;
+  (gridHelper.material as THREE.Material).opacity = 0.3;
   scene.add(gridHelper);
 
   starGroup = createStarField();
@@ -546,7 +763,7 @@ async function initializeScene() {
   const ringMaterial = new THREE.MeshBasicMaterial({
     color: 0x34d399,
     transparent: true,
-    opacity: 0.85,
+    opacity: 0.76,
   });
   selectionRing = new THREE.Mesh(ringGeometry, ringMaterial);
   selectionRing.rotation.x = Math.PI / 2.4;
@@ -563,28 +780,40 @@ async function initializeScene() {
   controls.autoRotateSpeed = 0.6;
   controls.update();
 
-  controls.addEventListener("start", () => {
+  const pauseAutoRotate = () => {
     controls.autoRotate = false;
     lastInteractionAt = performance.now();
-  });
-  controls.addEventListener("end", () => {
-    lastInteractionAt = performance.now();
-    window.setTimeout(() => {
-      if (performance.now() - lastInteractionAt >= 4000) {
+
+    if (autoRotateTimeoutId !== null) {
+      window.clearTimeout(autoRotateTimeoutId);
+    }
+
+    autoRotateTimeoutId = window.setTimeout(() => {
+      if (performance.now() - lastInteractionAt >= 4000 && controls) {
         controls.autoRotate = true;
       }
     }, 4100);
-  });
+  };
+
+  controls.addEventListener("start", pauseAutoRotate);
+  controls.addEventListener("end", pauseAutoRotate);
 
   pointerDownHandler = handlePointerDown;
   pointerMoveHandler = handlePointerMove;
+  pointerLeaveHandler = handlePointerLeave;
   renderer.domElement.addEventListener("pointerdown", pointerDownHandler);
   renderer.domElement.addEventListener("pointermove", pointerMoveHandler);
+  renderer.domElement.addEventListener("pointerleave", pointerLeaveHandler);
 
   composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
   const { width, height } = containerRef.value.getBoundingClientRect();
-  bloomPass = new UnrealBloomPass(new THREE.Vector2(width || 1, height || 1), 0.85, 0.55, 0.18);
+  bloomPass = new UnrealBloomPass(
+    new THREE.Vector2(width || 1, height || 1),
+    0.3,
+    0.24,
+    0.42,
+  );
   composer.addPass(bloomPass);
 
   resizeRenderer();
@@ -602,9 +831,15 @@ async function initializeScene() {
 function cleanupScene() {
   window.cancelAnimationFrame(animationFrameId);
 
+  if (autoRotateTimeoutId !== null) {
+    window.clearTimeout(autoRotateTimeoutId);
+    autoRotateTimeoutId = null;
+  }
+
   if (renderer?.domElement) {
     if (pointerDownHandler) renderer.domElement.removeEventListener("pointerdown", pointerDownHandler);
     if (pointerMoveHandler) renderer.domElement.removeEventListener("pointermove", pointerMoveHandler);
+    if (pointerLeaveHandler) renderer.domElement.removeEventListener("pointerleave", pointerLeaveHandler);
   }
 
   resizeObserver?.disconnect();
@@ -656,6 +891,16 @@ function cleanupScene() {
   }
   bloomPass = null;
 
+  if (backgroundTexture) {
+    backgroundTexture.dispose();
+    backgroundTexture = null;
+  }
+
+  if (glowTexture) {
+    glowTexture.dispose();
+    glowTexture = null;
+  }
+
   if (renderer) {
     renderer.forceContextLoss();
     renderer.dispose();
@@ -667,11 +912,13 @@ function cleanupScene() {
   camera = null;
   pointerDownHandler = null;
   pointerMoveHandler = null;
+  pointerLeaveHandler = null;
   hoveredMeshId = null;
-  glowTexture = null;
   nodeMeshes.length = 0;
   nodeMap.clear();
+  connectedNodeIds.clear();
   nodeVisuals.length = 0;
+  connectionVisuals.length = 0;
   flowParticles.length = 0;
   isInitialized = false;
 }

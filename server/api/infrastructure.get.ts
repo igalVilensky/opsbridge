@@ -1,12 +1,5 @@
-import {
-  infrastructureConnections,
-  infrastructureNodes,
-  type InfrastructureResponse,
-} from "~/shared/infrastructure";
+import { getInfrastructureSnapshot } from "../services/infrastructureService";
 
-export default defineEventHandler((): InfrastructureResponse => {
-  return {
-    nodes: infrastructureNodes,
-    connections: infrastructureConnections,
-  };
+export default defineEventHandler(async () => {
+  return getInfrastructureSnapshot();
 });

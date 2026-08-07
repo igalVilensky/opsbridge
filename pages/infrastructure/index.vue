@@ -4,6 +4,7 @@ import SectionCard from "~/components/ui/SectionCard.vue";
 import type {
   InfrastructureNode,
   InfrastructureResponse,
+  InfrastructureMetadataValue,
 } from "~/shared/infrastructure";
 
 definePageMeta({
@@ -76,12 +77,60 @@ const degradedCount = computed(
   () => nodes.value.filter((node) => node.status === "degraded").length,
 );
 
+const selectedNodeMetadata = computed(() => {
+  const metadata = selectedNode.value?.metadata;
+
+  if (!metadata) return [];
+
+  return Object.entries(metadata).filter(([, value]) => value !== undefined);
+});
+
 function handleNodeSelection(node: InfrastructureNode) {
   selectedNodeId.value = node.id;
 }
 
 function formatLabel(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function formatMetadataLabel(key: string) {
+  return key
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function formatMetadataValue(key: string, value: InfrastructureMetadataValue) {
+  if (value === null) {
+    return "—";
+  }
+
+  if (typeof value === "number") {
+    if (key.toLowerCase().includes("rate")) {
+      return `${value.toFixed(1)}%`;
+    }
+
+    return value.toLocaleString();
+  }
+
+  if (typeof value === "string") {
+    const looksLikeDate =
+      /(?:at|date|time)$/i.test(key) || /^(\d{4}-\d{2}-\d{2}T|\d{4}-\d{2}-\d{2} )/.test(value);
+
+    if (looksLikeDate) {
+      const parsed = new Date(value);
+      if (!Number.isNaN(parsed.getTime())) {
+        return new Intl.DateTimeFormat("en-US", {
+          dateStyle: "medium",
+          timeStyle: "short",
+        }).format(parsed);
+      }
+    }
+
+    return value || "—";
+  }
+
+  return "—";
 }
 
 const statusDotClass: Record<InfrastructureNode["status"], string> = {
@@ -180,6 +229,27 @@ const statusDotClass: Record<InfrastructureNode["status"], string> = {
                 </dd>
               </div>
             </dl>
+
+            <div v-if="selectedNodeMetadata.length" class="mt-5">
+              <p class="text-xs font-medium uppercase tracking-wide text-slate-500">
+                Operational metadata
+              </p>
+
+              <dl class="mt-2 space-y-3 text-sm">
+                <div
+                  v-for="[key, value] in selectedNodeMetadata"
+                  :key="key"
+                  class="rounded-md border border-slate-200 bg-white px-3 py-2"
+                >
+                  <dt class="text-xs font-medium uppercase tracking-wide text-slate-500">
+                    {{ formatMetadataLabel(key) }}
+                  </dt>
+                  <dd class="mt-1 font-medium text-slate-950">
+                    {{ formatMetadataValue(key, value) }}
+                  </dd>
+                </div>
+              </dl>
+            </div>
 
             <div class="mt-5">
               <p class="text-xs font-medium uppercase tracking-wide text-slate-500">
