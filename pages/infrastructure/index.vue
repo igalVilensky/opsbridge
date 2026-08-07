@@ -72,6 +72,10 @@ const connectedSystems = computed(() => {
     .filter((node): node is InfrastructureNode => Boolean(node));
 });
 
+const degradedCount = computed(
+  () => nodes.value.filter((node) => node.status === "degraded").length,
+);
+
 function handleNodeSelection(node: InfrastructureNode) {
   selectedNodeId.value = node.id;
 }
@@ -79,15 +83,37 @@ function handleNodeSelection(node: InfrastructureNode) {
 function formatLabel(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
+
+const statusDotClass: Record<InfrastructureNode["status"], string> = {
+  healthy: "bg-emerald-400",
+  degraded: "bg-amber-400",
+  unknown: "bg-slate-400",
+};
 </script>
 
 <template>
   <main class="space-y-6">
-    <div>
-      <h1 class="text-2xl font-semibold text-slate-950">Infrastructure</h1>
-      <p class="mt-1 text-sm text-slate-500">
-        3D overview of the core OpsBridge systems and their connections.
-      </p>
+    <div class="flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <h1 class="text-2xl font-semibold text-slate-950">Infrastructure</h1>
+        <p class="mt-1 text-sm text-slate-500">
+          3D overview of the core OpsBridge systems and their connections.
+        </p>
+      </div>
+
+      <div v-if="!isLoading && nodes.length" class="flex items-center gap-2 text-xs text-slate-500">
+        <span class="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1">
+          <span class="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+          {{ nodes.length }} systems
+        </span>
+        <span
+          v-if="degradedCount"
+          class="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-amber-700"
+        >
+          <span class="h-1.5 w-1.5 rounded-full bg-amber-400" />
+          {{ degradedCount }} degraded
+        </span>
+      </div>
     </div>
 
     <p
@@ -117,6 +143,7 @@ function formatLabel(value: string) {
         <InfrastructureScene
           :nodes="nodes"
           :connections="connections"
+          :selected-node-id="selectedNodeId"
           @select-node="handleNodeSelection"
         />
 
@@ -140,7 +167,8 @@ function formatLabel(value: string) {
 
               <div>
                 <dt class="text-slate-500">Status</dt>
-                <dd class="mt-0.5 font-medium text-slate-950">
+                <dd class="mt-0.5 inline-flex items-center gap-1.5 font-medium text-slate-950">
+                  <span class="h-1.5 w-1.5 rounded-full" :class="statusDotClass[selectedNode.status]" />
                   {{ formatLabel(selectedNode.status) }}
                 </dd>
               </div>
@@ -159,12 +187,15 @@ function formatLabel(value: string) {
               </p>
 
               <ul v-if="connectedSystems.length" class="mt-2 space-y-2 text-sm">
-                <li
-                  v-for="system in connectedSystems"
-                  :key="system.id"
-                  class="rounded-md border border-slate-200 bg-white px-3 py-2 text-slate-700"
-                >
-                  {{ system.name }}
+                <li v-for="system in connectedSystems" :key="system.id">
+                  <button
+                    type="button"
+                    class="flex w-full items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-left text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                    @click="handleNodeSelection(system)"
+                  >
+                    <span class="h-1.5 w-1.5 shrink-0 rounded-full" :class="statusDotClass[system.status]" />
+                    {{ system.name }}
+                  </button>
                 </li>
               </ul>
 
