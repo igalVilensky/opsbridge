@@ -133,9 +133,9 @@ function disposeRenderable(object: THREE.Object3D) {
 }
 
 function statusColor(status: InfrastructureNode["status"]) {
-  if (status === "healthy") return 0x34d399;
+  if (status === "healthy") return 0x22c55e;
   if (status === "degraded") return 0xf59e0b;
-  return 0x64748b;
+  return 0x94a3b8;
 }
 
 function statusPulseSpeed(status: InfrastructureNode["status"]) {
@@ -358,9 +358,9 @@ function getFlowSpeed(status: InfrastructureNode["status"], direction: "outbound
 }
 
 function getFlowOpacity(status: InfrastructureNode["status"]) {
-  if (status === "healthy") return 0.68;
-  if (status === "degraded") return 0.5;
-  return 0.26;
+  if (status === "healthy") return 0.78;
+  if (status === "degraded") return 0.66;
+  return 0.38;
 }
 
 function getFlowScale(status: InfrastructureNode["status"], direction: "outbound" | "inbound") {
@@ -630,7 +630,7 @@ function getConnectionHighlight(selectedId: string | null, connection: Connectio
   return {
     isDirect,
     opacity: isDirect ? 0.72 : 0.12,
-    color: isDirect ? new THREE.Color(statusColor(connection.targetStatus)) : connection.baseColor,
+    color: isDirect ? new THREE.Color(0xb8c4d4) : connection.baseColor,
   };
 }
 
@@ -747,7 +747,7 @@ function animate() {
     const material = particle.sprite.material as THREE.SpriteMaterial;
     material.color.setHex(
       particle.targetStatus === "healthy"
-        ? 0x4ade80
+        ? 0x22c55e
         : particle.targetStatus === "degraded"
           ? 0xf59e0b
           : 0x94a3b8,
@@ -1042,30 +1042,27 @@ onBeforeUnmount(() => {
     <div class="pointer-events-none absolute left-4 top-4 z-10 rounded-md border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-slate-200">
       OpsBridge-Infrastrukturmodell
     </div>
-    <div class="pointer-events-none absolute right-4 top-4 z-10 max-w-[14rem] rounded-md border border-white/10 bg-slate-950/70 px-3 py-2 text-[11px] leading-4 text-slate-300">
+    <div class="pointer-events-none absolute right-4 top-4 z-10 max-w-[15rem] rounded-md border border-white/10 bg-slate-950/70 px-3 py-2 text-[11px] leading-4 text-slate-300">
       <p class="font-medium text-slate-100">Legende</p>
       <ul class="mt-1.5 space-y-1">
-        <li class="flex items-start gap-2">
-          <span class="mt-1.5 h-2 w-2 rounded-full bg-cyan-300" />
-          <span>Bewegte Punkte = Kommunikations-/Datenfluss</span>
-        </li>
+        <li>Bewegte Punkte = Kommunikations- und Datenfluss</li>
+        <li>Farbe des Datenflusses = Status des Zielsystems</li>
         <li class="flex items-start gap-2">
           <span class="mt-1.5 h-2 w-2 rounded-full bg-emerald-400" />
           <span>Grün = verfügbar</span>
         </li>
         <li class="flex items-start gap-2">
           <span class="mt-1.5 h-2 w-2 rounded-full bg-amber-400" />
-          <span>Gelb/Orange = beeinträchtigt</span>
+          <span>Orange = beeinträchtigt</span>
         </li>
         <li class="flex items-start gap-2">
           <span class="mt-1.5 h-2 w-2 rounded-full bg-slate-400" />
           <span>Grau = unbekannt</span>
         </li>
-        <li class="flex items-start gap-2">
-          <span class="mt-1.5 h-2 w-2 rounded-full bg-sky-300" />
-          <span>Hellere Bewegung = aktivere Verbindung</span>
-        </li>
       </ul>
+      <p class="mt-2 text-[10px] leading-4 text-slate-400">
+        Mehr Punkte deuten auf höhere Aktivität hin. Visueller Hinweis, keine exakte Live-Zählung.
+      </p>
     </div>
     <div class="pointer-events-none absolute bottom-4 left-4 z-10 rounded-md border border-white/10 bg-slate-950/70 px-3 py-2 text-[11px] text-slate-400">
       Ziehen zum Drehen · Scrollen zum Zoomen · ein System anklicken, um Details anzuzeigen
