@@ -13,8 +13,27 @@ const {
 } = await useFetch(`/api/cases/${route.params.id}`);
 
 const editableDraft = ref(supportCase.value?.draftResponse ?? "");
+const isEnriching = ref(false);
+const isGeneratingAssistance = ref(false);
 const isApproving = ref(false);
 const actionError = ref("");
+
+const hasAiAssistance = computed(
+  () =>
+    Boolean(
+      supportCase.value?.aiSummary ||
+        supportCase.value?.suggestedAction ||
+        supportCase.value?.draftResponse,
+    ),
+);
+
+const isEnrichmentActionAvailable = computed(
+  () => supportCase.value?.status !== "APPROVED",
+);
+
+const canGenerateAssistance = computed(
+  () => supportCase.value?.status === "READY_FOR_REVIEW",
+);
 
 const latestEnrichmentRun = computed(() => {
   const enrichmentRuns = (supportCase.value as any)?.enrichmentRuns ?? [];
@@ -50,6 +69,40 @@ watch(
     editableDraft.value = draftResponse ?? "";
   },
 );
+
+async function enrichSupportCase() {
+  isEnriching.value = true;
+  actionError.value = "";
+
+  try {
+    await $fetch(`/api/cases/${route.params.id}/enrich`, {
+      method: "POST",
+    });
+
+    await refresh();
+  } catch {
+    actionError.value = "Die Falldaten konnten nicht angereichert werden.";
+  } finally {
+    isEnriching.value = false;
+  }
+}
+
+async function generateAssistance() {
+  isGeneratingAssistance.value = true;
+  actionError.value = "";
+
+  try {
+    await $fetch(`/api/cases/${route.params.id}/generate-assistance`, {
+      method: "POST",
+    });
+
+    await refresh();
+  } catch {
+    actionError.value = "Die KI-Unterstützung konnte nicht generiert werden.";
+  } finally {
+    isGeneratingAssistance.value = false;
+  }
+}
 
 async function approveDraft() {
   isApproving.value = true;
@@ -95,6 +148,43 @@ async function approveDraft() {
           <StatusBadge :status="supportCase.status" />
         </div>
       </div>
+
+      <div class="mt-4 flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          :disabled="isEnriching || isGeneratingAssistance || isApproving || !isEnrichmentActionAvailable"
+          class="inline-flex items-center justify-center rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
+          @click="enrichSupportCase"
+        >
+          {{ isEnriching ? "Wird angereichert …" : "Fall anreichern" }}
+        </button>
+
+        <button
+          type="button"
+          :disabled="isEnriching || isGeneratingAssistance || isApproving || !canGenerateAssistance"
+          class="inline-flex items-center justify-center rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+          @click="generateAssistance"
+        >
+          {{
+            isGeneratingAssistance
+              ? "KI-Unterstützung wird generiert …"
+              : hasAiAssistance
+                ? "KI-Unterstützung neu generieren"
+                : "KI-Unterstützung generieren"
+          }}
+        </button>
+      </div>
+
+      <p
+        v-if="actionError"
+        class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+      >
+        {{ actionError }}
+      </p>
+
+      <p v-else-if="supportCase.status === 'NEW'" class="mt-3 text-sm text-slate-500">
+        Bitte zuerst den Fall anreichern, damit KI-Unterstützung generiert werden kann.
+      </p>
     </div>
 
     <SectionCard title="Kundennachricht">
@@ -262,13 +352,6 @@ async function approveDraft() {
             class="mt-1.5 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-950 shadow-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-500 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-500"
           ></textarea>
         </div>
-
-        <p
-          v-if="actionError"
-          class="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
-        >
-          {{ actionError }}
-        </p>
 
         <div v-if="supportCase.status === 'READY_FOR_REVIEW'" class="flex justify-end">
           <button
