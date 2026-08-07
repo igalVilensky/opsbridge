@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import InfrastructureScene from "~/components/infrastructure/InfrastructureScene.vue";
-import SectionCard from "~/components/ui/SectionCard.vue";
 import {
   infrastructureMetadataLabels,
   infrastructureStatusLabels,
@@ -160,16 +159,13 @@ const statusDotClass: Record<InfrastructureNode["status"], string> = {
 </script>
 
 <template>
-  <main class="space-y-6">
-    <div class="flex flex-wrap items-end justify-between gap-3">
-      <div>
-        <h1 class="text-2xl font-semibold text-slate-950">Infrastruktur</h1>
-        <p class="mt-1 text-sm text-slate-500">
-          3D-Übersicht der zentralen OpsBridge-Systeme und ihrer Verbindungen.
-        </p>
-      </div>
+  <main class="space-y-4">
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <p class="max-w-3xl text-sm text-slate-500">
+        3D-Übersicht der zentralen OpsBridge-Systeme und ihrer Verbindungen.
+      </p>
 
-      <div v-if="!isLoading && nodes.length" class="flex items-center gap-2 text-xs text-slate-500">
+      <div v-if="!isLoading && nodes.length" class="flex flex-wrap items-center gap-2 text-xs text-slate-500">
         <span class="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1">
           <span class="h-1.5 w-1.5 rounded-full bg-emerald-400" />
           {{ nodes.length }} Systeme
@@ -179,7 +175,7 @@ const statusDotClass: Record<InfrastructureNode["status"], string> = {
           class="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-amber-700"
         >
           <span class="h-1.5 w-1.5 rounded-full bg-amber-400" />
-          {{ degradedCount }} beeinträchtigte Systeme
+          {{ degradedCount }} beeinträchtigt
         </span>
       </div>
     </div>
@@ -191,29 +187,43 @@ const statusDotClass: Record<InfrastructureNode["status"], string> = {
       Die Infrastrukturdaten konnten derzeit nicht geladen werden.
     </p>
 
-    <SectionCard
-      v-else
-      title="Systemarchitektur"
-      description="Drehen, zoomen und ein System anklicken, um Details anzuzeigen."
-    >
-      <div v-if="isLoading" class="py-12 text-sm text-slate-500">
+    <section v-else class="space-y-3">
+      <div v-if="isLoading" class="rounded-lg border border-slate-200 bg-white px-4 py-6 text-sm text-slate-500 shadow-sm">
         Infrastrukturdaten werden geladen …
       </div>
 
       <div
         v-else-if="!nodes.length"
-        class="py-12 text-sm text-slate-500"
+        class="rounded-lg border border-slate-200 bg-white px-4 py-6 text-sm text-slate-500 shadow-sm"
       >
         Noch keine Infrastruktursysteme verfügbar.
       </div>
 
-      <div v-else class="grid gap-6 lg:grid-cols-[minmax(0,2fr)_20rem]">
-        <InfrastructureScene
-          :nodes="nodes"
-          :connections="connections"
-          :selected-node-id="selectedNodeId"
-          @select-node="handleNodeSelection"
-        />
+      <div v-else class="grid gap-4 lg:grid-cols-[minmax(0,2fr)_20rem]">
+        <div class="space-y-3">
+          <InfrastructureScene
+            :nodes="nodes"
+            :connections="connections"
+            :selected-node-id="selectedNodeId"
+            @select-node="handleNodeSelection"
+          />
+
+          <div class="flex flex-wrap gap-x-6 gap-y-2 border-t border-slate-200 pt-3 text-xs leading-5 text-slate-500">
+            <span class="inline-flex items-center gap-1.5">
+              <span class="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+              Grün - verfügbar
+            </span>
+            <span class="inline-flex items-center gap-1.5">
+              <span class="h-1.5 w-1.5 rounded-full bg-amber-400" />
+              Orange - beeinträchtigt
+            </span>
+            <span class="inline-flex items-center gap-1.5">
+              <span class="h-1.5 w-1.5 rounded-full bg-slate-400" />
+              Grau - unbekannt
+            </span>
+            <span>Bewegte Punkte - Kommunikations- und Datenfluss</span>
+          </div>
+        </div>
 
         <aside class="rounded-lg border border-slate-200 bg-slate-50 p-4">
           <div v-if="selectedNode">
@@ -299,6 +309,6 @@ const statusDotClass: Record<InfrastructureNode["status"], string> = {
           </div>
         </aside>
       </div>
-    </SectionCard>
+    </section>
   </main>
 </template>

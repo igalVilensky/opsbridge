@@ -16,11 +16,8 @@ const pageTitle = computed(() => {
   <header
     class="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur"
   >
-    <div class="flex min-h-16 items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+    <div class="flex min-h-14 items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
       <div class="min-w-0">
-        <p class="text-xs font-medium uppercase tracking-wide text-slate-500">
-          Übersicht
-        </p>
         <h1 class="truncate text-xl font-semibold text-slate-950">
           {{ pageTitle }}
         </h1>

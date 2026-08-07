@@ -1039,31 +1039,6 @@ onBeforeUnmount(() => {
     ref="containerRef"
     class="relative min-h-[32rem] overflow-hidden rounded-lg border border-slate-200 bg-slate-950"
   >
-    <div class="pointer-events-none absolute left-4 top-4 z-10 rounded-md border border-white/10 bg-slate-950/70 px-3 py-2 text-xs text-slate-200">
-      OpsBridge-Infrastrukturmodell
-    </div>
-    <div class="pointer-events-none absolute right-4 top-4 z-10 max-w-[15rem] rounded-md border border-white/10 bg-slate-950/70 px-3 py-2 text-[11px] leading-4 text-slate-300">
-      <p class="font-medium text-slate-100">Legende</p>
-      <ul class="mt-1.5 space-y-1">
-        <li>Bewegte Punkte = Kommunikations- und Datenfluss</li>
-        <li>Farbe des Datenflusses = Status des Zielsystems</li>
-        <li class="flex items-start gap-2">
-          <span class="mt-1.5 h-2 w-2 rounded-full bg-emerald-400" />
-          <span>Grün = verfügbar</span>
-        </li>
-        <li class="flex items-start gap-2">
-          <span class="mt-1.5 h-2 w-2 rounded-full bg-amber-400" />
-          <span>Orange = beeinträchtigt</span>
-        </li>
-        <li class="flex items-start gap-2">
-          <span class="mt-1.5 h-2 w-2 rounded-full bg-slate-400" />
-          <span>Grau = unbekannt</span>
-        </li>
-      </ul>
-      <p class="mt-2 text-[10px] leading-4 text-slate-400">
-        Mehr Punkte deuten auf höhere Aktivität hin. Visueller Hinweis, keine exakte Live-Zählung.
-      </p>
-    </div>
     <div class="pointer-events-none absolute bottom-4 left-4 z-10 rounded-md border border-white/10 bg-slate-950/70 px-3 py-2 text-[11px] text-slate-400">
       Ziehen zum Drehen · Scrollen zum Zoomen · ein System anklicken, um Details anzuzeigen
     </div>

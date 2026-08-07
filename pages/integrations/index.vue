@@ -127,10 +127,9 @@ function statusClass(statusValue: string) {
 </script>
 
 <template>
-  <main class="space-y-6">
-    <div>
-      <h1 class="text-2xl font-semibold text-slate-950">Integrationen</h1>
-      <p class="mt-1 text-sm text-slate-500">
+  <main class="space-y-4">
+    <div class="max-w-3xl">
+      <p class="text-sm text-slate-500">
         Operative Übersicht über den Zustand der externen Systeme und die zuletzt
         ausgeführten Integrationen.
       </p>

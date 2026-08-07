@@ -14,13 +14,10 @@ const isLoading = computed(() => status.value === "pending");
 
 <template>
   <main>
-    <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
-      <div>
-        <h1 class="text-2xl font-semibold text-slate-950">Fälle</h1>
-        <p class="mt-1 text-sm text-slate-500">
-          {{ cases?.length ? `${cases.length} Fälle insgesamt` : "Übersicht aller Support-Fälle" }}
-        </p>
-      </div>
+    <div class="mb-5 flex flex-wrap items-center justify-between gap-4">
+      <p class="text-sm text-slate-500">
+        {{ cases?.length ? `${cases.length} Fälle insgesamt` : "Übersicht aller Support-Fälle" }}
+      </p>
 
       <NuxtLink
         to="/cases/new"
