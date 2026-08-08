@@ -22,20 +22,23 @@ function isActivePath(path: string) {
     class="border-b border-slate-200 bg-white lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:w-72 lg:border-b-0 lg:border-r"
   >
     <div class="flex h-full flex-col">
-      <div class="flex h-16 items-center gap-3 border-b border-slate-200 px-4 sm:px-6">
-        <div
-          class="flex size-10 shrink-0 items-center justify-center rounded bg-blue-600 text-sm font-bold text-white"
-        >
-          OB
-        </div>
+      <NuxtLink
+        to="/cases"
+        class="flex h-16 items-center gap-3 border-b border-slate-200 px-4 sm:px-6"
+      >
+        <img
+          src="/logo-agorando.svg"
+          alt="Agorando"
+          class="h-6 w-auto shrink-0 sm:h-7"
+        />
 
-        <div class="min-w-0">
+        <div class="min-w-0 hidden sm:block">
           <p class="truncate text-base font-semibold text-slate-950">OpsBridge</p>
           <p class="truncate text-xs font-medium uppercase tracking-wide text-slate-500">
             Betriebskonsole
           </p>
         </div>
-      </div>
+      </NuxtLink>
 
       <nav
         aria-label="Primäre Navigation"

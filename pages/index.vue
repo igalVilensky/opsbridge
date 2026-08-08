@@ -62,9 +62,15 @@ async function handleSubmit() {
     <div class="mx-auto flex min-h-screen w-full max-w-6xl items-center px-4 py-10 sm:px-6 lg:px-8">
       <div class="grid w-full gap-8 lg:grid-cols-[1.1fr_0.9fr]">
         <section class="flex flex-col justify-center">
-          <div class="inline-flex w-fit items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-xs font-medium text-slate-600 shadow-sm backdrop-blur">
+          <img
+            src="/logo-agorando.svg"
+            alt="Agorando"
+            class="h-8 w-auto sm:h-9"
+          />
+
+          <div class="mt-5 inline-flex w-fit items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-xs font-medium text-slate-600 shadow-sm backdrop-blur">
             <span class="h-2 w-2 rounded-full bg-emerald-500" />
-            Interne Operations-Plattform
+            Operations / Support platform
           </div>
 
           <h1 class="mt-5 text-4xl font-semibold tracking-tight text-slate-950 sm:text-5xl">
