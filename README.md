@@ -322,7 +322,7 @@ Create a `.env` file:
 # Local development can point DATABASE_URL at any Postgres database.
 DATABASE_URL="postgresql://USER:PASSWORD@localhost:5432/opsbridge?schema=public"
 
-# Netlify Database exposes the same connection as NETLIFY_DB_URL in production.
+# Netlify Database exposes the production connection as NETLIFY_DB_URL.
 NETLIFY_DB_URL=
 
 AI_PROVIDER=groq
@@ -330,7 +330,7 @@ GROQ_API_KEY=
 GROQ_MODEL=openai/gpt-oss-20b
 ```
 
-If you previously used the SQLite setup, replace the old `file:./dev.db` value with a Postgres connection string.
+If you previously used a SQLite setup, replace any `file:./dev.db` value with a Postgres connection string.
 
 ### Generate the Prisma Client
 
@@ -448,7 +448,7 @@ pnpm db:seed
 
 ### Database setup
 
-Production uses Netlify Database as the PostgreSQL database. Netlify exposes the connection string as `NETLIFY_DB_URL`; OpsBridge accepts either `DATABASE_URL` or `NETLIFY_DB_URL` on the server side.
+Production uses Netlify Database as the PostgreSQL database. Netlify exposes the connection string as `NETLIFY_DB_URL`; OpsBridge accepts either `DATABASE_URL` or `NETLIFY_DB_URL` on the server side through Prisma.
 
 ### Build command
 
@@ -464,9 +464,9 @@ pnpm build
 
 1. Deploy the project.
 2. Create or connect the Netlify Database.
-3. Add `DATABASE_URL` or `NETLIFY_DB_URL`.
-4. Run `pnpm db:deploy` against the production database.
-5. Optionally seed demo content with `pnpm db:seed` after the schema is ready.
+3. Confirm Netlify provides `NETLIFY_DB_URL` to the site runtime.
+4. Let Netlify apply the SQL migrations from `netlify/database/migrations` during deploy.
+5. Optionally seed demo content manually with `pnpm db:seed` after the schema is ready.
 
 ## Security boundaries
 
